@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-const sgrPrefix = "\033["
+//const sgrPrefix = "\033["
 
 var sgrStyling = map[int]Styling{
 	0: Reset,

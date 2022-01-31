@@ -8,6 +8,7 @@ builds:
       - linux
       - windows
       - darwin
+    main: ./example
     binary: example
 archives:
   - replacements:
