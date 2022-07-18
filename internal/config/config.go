@@ -61,6 +61,11 @@ func Load() error {
 	if err := load("styles", config.Styles); err != nil {
 		return err
 	}
+
+	// TODO duplicated, ok or improve?
+	if err := load("configs", config.Configs); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -84,7 +89,7 @@ func load(name string, c configMap) error {
 				elem := reflect.ValueOf(s).Elem()
 				for k, v := range value {
 					if field := elem.FieldByName(k); field != (reflect.Value{}) {
-						field.Set(reflect.ValueOf(v))
+						field.Set(reflect.ValueOf(v).Convert(field.Type()))
 					}
 				}
 			}

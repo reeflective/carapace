@@ -243,7 +243,7 @@ func addCompletionCommand(cmd *cobra.Command) {
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, arg := range args {
 				if splitted := strings.SplitN(arg, "=", 2); len(splitted) == 2 {
-					if err := style.Set(splitted[0], splitted[1]); err != nil {
+					if err := config.SetConfig(splitted[0], splitted[1]); err != nil {
 						fmt.Fprint(cmd.ErrOrStderr(), err.Error())
 					}
 				} else {
