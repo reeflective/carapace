@@ -38,9 +38,15 @@ func (c configMap) Fields(name string) ([]string, error) {
 }
 
 var config = struct {
-	Styles configMap
+	Configs configMap
+	Styles  configMap
 }{
-	Styles: make(configMap),
+	Configs: make(configMap),
+	Styles:  make(configMap),
+}
+
+func RegisterConfig(name string, i interface{}) {
+	config.Configs[name] = i
 }
 
 func RegisterStyle(name string, i interface{}) {
@@ -64,7 +70,7 @@ func load(name string, c configMap) error {
 			return err
 		}
 
-		var unmarshalled map[string]map[string]string
+		var unmarshalled map[string]map[string]interface{}
 		if err := json.Unmarshal(content, &unmarshalled); err != nil {
 			return err
 		}
@@ -74,13 +80,17 @@ func load(name string, c configMap) error {
 				elem := reflect.ValueOf(s).Elem()
 				for k, v := range value {
 					if field := elem.FieldByName(k); field != (reflect.Value{}) {
-						field.SetString(v)
+						field.Set(reflect.ValueOf(v))
 					}
 				}
 			}
 		}
 	}
 	return nil
+}
+
+func SetConfig(key, value string) error {
+	return set("configs", key, strings.Replace(value, ",", " ", -1))
 }
 
 func GetStyleConfigs() []string                    { return config.Styles.Keys() }
