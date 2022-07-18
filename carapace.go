@@ -229,6 +229,33 @@ func addCompletionCommand(cmd *cobra.Command) {
 	Carapace{styleSetCmd}.PositionalAnyCompletion(
 		ActionStyleConfig(),
 	)
+
+	configCmd := &cobra.Command{
+		Use:  "config",
+		Args: cobra.ExactArgs(1),
+		Run:  func(cmd *cobra.Command, args []string) {},
+	}
+	carapaceCmd.AddCommand(configCmd)
+
+	configSetCmd := &cobra.Command{
+		Use:  "set",
+		Args: cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			for _, arg := range args {
+				if splitted := strings.SplitN(arg, "=", 2); len(splitted) == 2 {
+					if err := style.Set(splitted[0], splitted[1]); err != nil {
+						fmt.Fprint(cmd.ErrOrStderr(), err.Error())
+					}
+				} else {
+					fmt.Fprintf(cmd.ErrOrStderr(), "invalid format: '%v'", arg)
+				}
+			}
+		},
+	}
+	configCmd.AddCommand(configSetCmd)
+	Carapace{configSetCmd}.PositionalAnyCompletion(
+		ActionConfigs(),
+	)
 }
 
 func complete(cmd *cobra.Command, args []string) (string, error) {
