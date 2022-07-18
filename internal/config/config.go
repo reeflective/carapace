@@ -99,8 +99,10 @@ func SetConfig(key, value string) error {
 
 func GetConfigs() []string                          { return config.Configs.Keys() }
 func GetConfigFields(name string) ([]string, error) { return config.Configs.Fields(name, false) }
-func GetStyleConfigs() []string                     { return config.Styles.Keys() }
-func GetStyleFields(name string) ([]string, error)  { return config.Styles.Fields(name, true) }
+func GetConfigMap(name string) interface{}          { return config.Configs[name] }
+
+func GetStyleConfigs() []string                    { return config.Styles.Keys() }
+func GetStyleFields(name string) ([]string, error) { return config.Styles.Fields(name, true) }
 func SetStyle(key, value string) error {
 	return set("styles", key, strings.Replace(value, ",", " ", -1))
 }
