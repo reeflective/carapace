@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -128,7 +129,7 @@ func set(name, key, value string) error {
 		content = []byte("{}")
 	}
 
-	var config map[string]map[string]string
+	var config map[string]map[string]interface{}
 	if err := json.Unmarshal(content, &config); err != nil {
 		return err
 	}
@@ -137,12 +138,25 @@ func set(name, key, value string) error {
 		return errors.New("invalid key")
 	} else {
 		if _, ok := config[splitted[0]]; !ok {
-			config[splitted[0]] = make(map[string]string, 0)
+			config[splitted[0]] = make(map[string]interface{}, 0)
 		}
 		if strings.TrimSpace(value) == "" {
 			delete(config[splitted[0]], splitted[1])
 		} else {
-			config[splitted[0]][splitted[1]] = value
+			switch reflect.TypeOf(config[splitted[0]][splitted[1]]).Kind() {
+			case reflect.Int:
+				intValue, err := strconv.Atoi(value)
+				if err != nil {
+					return err
+				}
+				config[splitted[0]][splitted[1]] = intValue
+
+			case reflect.String:
+				config[splitted[0]][splitted[1]] = value
+
+			case reflect.Slice:
+				// TODO
+			}
 		}
 	}
 
