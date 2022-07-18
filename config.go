@@ -35,7 +35,7 @@ func ActionConfigs() Action {
 					if err != nil {
 						return ActionMessage(err.Error())
 					}
-					return ActionValuesDescribed(fields...).Invoke(c).Suffix("=").ToA()
+					return ActionStyledValuesDescribed(fields...).Invoke(c).Suffix("=").ToA()
 				default:
 					return ActionValues()
 				}
