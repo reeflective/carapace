@@ -49,8 +49,10 @@ jobs:
     - name: Test
       run: PATH=$(pwd):$PATH go test -coverprofile=coverage.out -v ./...
 
-    - uses: codecov/codecov-action@v2
-
+    - uses: shogo82148/actions-goveralls@v1
+      with:
+        path-to-profile: coverage.out
+      
     - name: Run GoReleaser
       uses: goreleaser/goreleaser-action@v2
       if: startsWith(github.ref, 'refs/tags/')
