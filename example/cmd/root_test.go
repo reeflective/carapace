@@ -53,3 +53,51 @@ func TestXonsh(t *testing.T) {
 func TestZsh(t *testing.T) {
 	testScript(t, "zsh", "./_test/zsh.sh")
 }
+
+func TestRoot(t *testing.T) {
+	carapace.Test(t, rootCmd)(func(s carapace.Sandbox) {
+		s.Run("").Expect(carapace.ActionValuesDescribed(
+			"action", "action example",
+			"alias", "action example",
+			"batch", "batch example",
+			"completion", "Generate the autocompletion script for the specified shell",
+			"condition", "condition example",
+			"execute", "execute example",
+			"help", "Help about any command",
+			"injection", "just trying to break things",
+			"multiparts", "multiparts example",
+		))
+		s.Run("a").Expect(carapace.ActionValuesDescribed(
+			"action", "action example",
+			"alias", "action example",
+		))
+		s.Run("action").Expect(carapace.ActionValuesDescribed(
+			"action", "action example",
+		))
+		s.Run("-").Expect(carapace.ActionValuesDescribed(
+			"--array", "multiflag",
+			"-a", "multiflag",
+			"--persistentFlag", "Help message for persistentFlag",
+			"-p", "Help message for persistentFlag",
+			"--toggle", "Help message for toggle",
+			"-t", "Help message for toggle",
+		))
+		s.Run("--").Expect(carapace.ActionValuesDescribed(
+			"--array", "multiflag",
+			"--persistentFlag", "Help message for persistentFlag",
+			"--toggle", "Help message for toggle",
+		))
+		s.Run("--a").Expect(carapace.ActionValuesDescribed(
+			"--array", "multiflag",
+		))
+		s.Run("--array").Expect(carapace.ActionValuesDescribed(
+			"--array", "multiflag",
+		))
+		s.Run("--array", "", "--a").Expect(carapace.ActionValuesDescribed(
+			"--array", "multiflag",
+		))
+		s.Run("-a", "", "--a").Expect(carapace.ActionValuesDescribed(
+			"--array", "multiflag",
+		))
+	})
+}

@@ -2,7 +2,6 @@ package os
 
 import (
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/rsteube/carapace"
@@ -130,7 +129,7 @@ func ActionUserGroup() carapace.Action {
 // ActionShells completes shells
 func ActionShells() carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) (result carapace.Action) {
-		if output, err := exec.Command("chsh", "--list-shells").Output(); err != nil {
+		if output, err := c.Command("chsh", "--list-shells").Output(); err != nil {
 			result = carapace.ActionMessage(err.Error())
 		} else {
 			result = carapace.ActionValues(strings.Split(string(output), "\n")...)

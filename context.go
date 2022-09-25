@@ -3,6 +3,7 @@ package carapace
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -23,6 +24,8 @@ type Context struct {
 	Env []string
 	// Dir contains the working directory for current context
 	Dir string
+	// TODO test
+	sandbox *Sandbox
 }
 
 // LookupEnv retrieves the value of the environment variable named by the key.
@@ -59,7 +62,12 @@ func (c *Context) Envsubst(s string) (string, error) {
 // Env and Dir are set using the Context.
 // See exec.Command for most details.
 func (c Context) Command(name string, arg ...string) *execabs.Cmd {
-	cmd := execabs.Command(name, arg...)
+	var cmd *exec.Cmd
+	if c.sandbox != nil {
+		cmd = c.sandbox.mockCommand(name, arg...)
+	} else {
+		cmd = execabs.Command(name, arg...)
+	}
 	cmd.Env = c.Env
 	cmd.Dir = c.Dir
 	return cmd

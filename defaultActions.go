@@ -89,6 +89,7 @@ func ActionExecute(cmd *cobra.Command) Action {
 				// TODO verify
 				_c.Env = c.Env
 				_c.Dir = c.Dir
+				_c.sandbox = c.sandbox
 				return action.Invoke(_c).ToA()
 			})
 		})

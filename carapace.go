@@ -385,8 +385,16 @@ func initLogger() (err error) {
 //	func TestCarapace(t *testing.T) {
 //	    carapace.Test(t)
 //	}
-func Test(t interface{ Error(args ...interface{}) }) {
+func Test(t T, cmd ...*cobra.Command) (f func(func(s Sandbox))) {
 	for _, e := range storage.check() {
 		t.Error(e)
+	}
+
+	return func(f func(s Sandbox)) {
+		for _, c := range cmd {
+			s := newSandbox(t, c)
+			defer s.remove()
+			f(s)
+		}
 	}
 }

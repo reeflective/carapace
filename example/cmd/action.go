@@ -45,6 +45,7 @@ func init() {
 	actionCmd.Flags().StringP("values", "v", "", "values flag")
 	actionCmd.Flags().StringP("values_described", "d", "", "values with description flag")
 	actionCmd.Flag("optarg").NoOptDefVal = "blue"
+	actionCmd.Flags().String("shells", "", "users flag")
 	//actionCmd.Flags().StringS("shorthandonly", "s", "", "shorthandonly flag")
 
 	carapace.Gen(actionCmd).FlagCompletion(carapace.ActionMap{
@@ -61,6 +62,7 @@ func init() {
 		"message":        carapace.ActionMessage("message example"),
 		"net_interfaces": net.ActionNetInterfaces(),
 		"optarg":         carapace.ActionValues("blue", "red", "green", "yellow"),
+		"shells":         os.ActionShells(),
 		"style":          carapace.ActionStyleConfig(),
 		"styled_values": carapace.ActionStyledValues(
 			"default", style.Default,
