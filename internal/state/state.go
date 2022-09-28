@@ -47,8 +47,8 @@ func NewCommandState(t T, cmd *cobra.Command) *CommandState {
 	cmd.CompletionOptions = cobra.CompletionOptions{
 		DisableDefaultCmd: true,
 	}
-    cmd.InitDefaultHelpCmd()
-    cmd.Flags() // call once
+	cmd.InitDefaultHelpCmd()
+	cmd.Flags() // call once
 	cfg := spew.NewDefaultConfig()
 	cfg.SortKeys = true
 	state := &CommandState{
