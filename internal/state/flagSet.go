@@ -2,7 +2,6 @@ package state
 
 import (
 	"io"
-	"testing"
 
 	goflag "flag"
 
@@ -51,7 +50,7 @@ func NewFlagSetState(fs *pflag.FlagSet) *FlagSetState {
 	return s
 }
 
-func (s *FlagSetState) Restore(t *testing.T) {
+func (s *FlagSetState) Restore(t T) {
 	// TODO restore
 
 	if s.flagStates != nil {

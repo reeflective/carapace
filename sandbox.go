@@ -52,7 +52,7 @@ func newSandbox(t T, cmd *cobra.Command) Sandbox {
 	}
 	return Sandbox{
 		t:             t,
-		cmd:           state.NewCommandState(t, cmd),
+		cmd:           state.NewCommandState(cmd),
 		mockedReplies: make(map[string]string),
 		dir:           tempDir,
 	}
@@ -131,7 +131,7 @@ func (s *Sandbox) Run(args ...string) run {
 	return run{
 		c,
         ActionCallback(func(c Context) Action {
-	        s.cmd.Restore() // TODO restore right before ActionExecute
+	        s.cmd.Restore(s.t) // TODO restore right before ActionExecute
 		    return ActionExecute(s.cmd.Command)
         }),
 	}

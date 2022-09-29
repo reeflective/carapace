@@ -14,7 +14,7 @@ func TestState(t *testing.T) {
 	cmd.Flags().Bool("first", false, "first flag")
 	cmd.Flags().String("second", "", "second flag")
 
-	state := NewCommandState(t, cmd)
+	state := NewCommandState(cmd)
 	cmd.SetArgs([]string{"--first", "pos1"})
-	state.Restore()
+	state.Restore(t)
 }

@@ -4,17 +4,17 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"testing"
 
 	"github.com/rsteube/carapace/internal/assert"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
-type CommandState2 struct {
+type CommandState struct {
 	*cobra.Command
-	dump          string
-	flagSetStates map[*pflag.FlagSet]*FlagSetState
+	dump             string
+	subCommandStates map[*cobra.Command]*CommandState
+	flagSetStates    map[*pflag.FlagSet]*FlagSetState
 
 	Use                    string
 	Aliases                []string
@@ -82,35 +82,35 @@ type CommandState2 struct {
 	SuggestionsMinimumDistance int
 }
 
-func NewCommandState2(cmd *cobra.Command) *CommandState2 {
-	s := &CommandState2{
+func NewCommandState(cmd *cobra.Command) *CommandState {
+	s := &CommandState{
 		Command: cmd,
 		dump:    dump(cmd),
 		// flagSetStates map[*pflag.FlagSet]*FlagSetState
 
-		Use: cmd.Use,
-        Aliases: copyStringSlice(cmd.Aliases),
-        SuggestFor: copyStringSlice(cmd.SuggestFor),
-        Short: cmd.Short,
-        Long: cmd.Long,
-        Example: cmd.Example,
-        ValidArgs: copyStringSlice(cmd.ValidArgs),
-        ValidArgsFunction: cmd.ValidArgsFunction,
+		Use:               cmd.Use,
+		Aliases:           copyStringSlice(cmd.Aliases),
+		SuggestFor:        copyStringSlice(cmd.SuggestFor),
+		Short:             cmd.Short,
+		Long:              cmd.Long,
+		Example:           cmd.Example,
+		ValidArgs:         copyStringSlice(cmd.ValidArgs),
+		ValidArgsFunction: cmd.ValidArgsFunction,
 		//Args cobra.PositionalArgs
-        ArgAliases: copyStringSlice(cmd.ArgAliases),
-        BashCompletionFunction: cmd.BashCompletionFunction,
-        Deprecated: cmd.Deprecated,
+		ArgAliases:             copyStringSlice(cmd.ArgAliases),
+		BashCompletionFunction: cmd.BashCompletionFunction,
+		Deprecated:             cmd.Deprecated,
 		//Annotations map[string]string
-        Version: cmd.Version,
-        PersistentPreRun: cmd.PersistentPostRun,
-		PersistentPreRunE: cmd.PersistentPreRunE,
-		PreRun: cmd.PreRun,
-		PreRunE: cmd.PreRunE,
-		Run: cmd.Run,
-		RunE: cmd.RunE,
-		PostRun: cmd.PostRun,
-		PostRunE: cmd.PostRunE,
-		PersistentPostRun: cmd.PersistentPostRun,
+		Version:            cmd.Version,
+		PersistentPreRun:   cmd.PersistentPostRun,
+		PersistentPreRunE:  cmd.PersistentPreRunE,
+		PreRun:             cmd.PreRun,
+		PreRunE:            cmd.PreRunE,
+		Run:                cmd.Run,
+		RunE:               cmd.RunE,
+		PostRun:            cmd.PostRun,
+		PostRunE:           cmd.PostRunE,
+		PersistentPostRun:  cmd.PersistentPostRun,
 		PersistentPostRunE: cmd.PersistentPostRunE,
 		//args []string
 		//flagErrorBuf *bytes.Buffer
@@ -143,22 +143,21 @@ func NewCommandState2(cmd *cobra.Command) *CommandState2 {
 		//commandsMaxUseLen         int
 		//commandsMaxCommandPathLen int
 		//commandsMaxNameLen        int
-		TraverseChildren: cmd.TraverseChildren,
-		Hidden: cmd.Hidden,
-		SilenceErrors: cmd.SilenceErrors,
-		SilenceUsage: cmd.SilenceUsage,
-		DisableFlagParsing: cmd.DisableFlagParsing,
-		DisableAutoGenTag: cmd.DisableAutoGenTag,
-		DisableFlagsInUseLine: cmd.DisableFlagsInUseLine,
-		DisableSuggestions: cmd.DisableSuggestions,
+		TraverseChildren:           cmd.TraverseChildren,
+		Hidden:                     cmd.Hidden,
+		SilenceErrors:              cmd.SilenceErrors,
+		SilenceUsage:               cmd.SilenceUsage,
+		DisableFlagParsing:         cmd.DisableFlagParsing,
+		DisableAutoGenTag:          cmd.DisableAutoGenTag,
+		DisableFlagsInUseLine:      cmd.DisableFlagsInUseLine,
+		DisableSuggestions:         cmd.DisableSuggestions,
 		SuggestionsMinimumDistance: cmd.SuggestionsMinimumDistance,
-
 	}
 
 	return s
 }
 
-func (s *CommandState2) Restore(t *testing.T) {
+func (s *CommandState) Restore(t T) {
 	// TODO restore
 
 	if s.flagSetStates != nil {

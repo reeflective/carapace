@@ -1,8 +1,6 @@
 package state
 
 import (
-	"testing"
-
 	"github.com/davecgh/go-spew/spew"
 	"github.com/rsteube/carapace/internal/assert"
 	"github.com/spf13/pflag"
@@ -57,7 +55,7 @@ func NewFlagState(f *pflag.Flag) *FlagState {
 	return s
 }
 
-func (s *FlagState) Restore(t *testing.T) {
+func (s *FlagState) Restore(t T) {
 	s.Flag.Name = s.Name
 	s.Flag.Shorthand = s.Shorthand
 	s.Flag.Usage = s.Usage

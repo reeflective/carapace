@@ -12,10 +12,10 @@ func TestCommand(t *testing.T) {
 		Run: func(cmd *cobra.Command, args []string) {},
 	}
 
-	state := NewCommandState2(cmd)
+	state := NewCommandState(cmd)
 
 	cmd.Use = "changed"
-    cmd.Long = "changed"
+	cmd.Long = "changed"
 
 	state.Restore(t)
 }
