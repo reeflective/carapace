@@ -15,6 +15,7 @@ func TestCommand(t *testing.T) {
 	state := NewCommandState2(cmd)
 
 	cmd.Use = "changed"
+    cmd.Long = "changed"
 
 	state.Restore(t)
 }

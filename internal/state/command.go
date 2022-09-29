@@ -87,10 +87,11 @@ func NewCommandState2(cmd *cobra.Command) *CommandState2 {
 		Command: cmd,
 		dump:    dump(cmd),
 		// flagSetStates map[*pflag.FlagSet]*FlagSetState
+
 		Use: cmd.Use,
-		//Aliases []string
-		//SuggestFor []string
-		//Short string
+        Aliases: copyStringSlice(cmd.Aliases),
+        SuggestFor: copyStringSlice(cmd.SuggestFor),
+        Short: cmd.Short,
 		//Long string
 		//Example string
 		//ValidArgs []string
