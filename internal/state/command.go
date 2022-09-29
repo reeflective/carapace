@@ -92,26 +92,26 @@ func NewCommandState2(cmd *cobra.Command) *CommandState2 {
         Aliases: copyStringSlice(cmd.Aliases),
         SuggestFor: copyStringSlice(cmd.SuggestFor),
         Short: cmd.Short,
-		//Long string
-		//Example string
-		//ValidArgs []string
-		//ValidArgsFunction func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective)
+        Long: cmd.Long,
+        Example: cmd.Example,
+        ValidArgs: copyStringSlice(cmd.ValidArgs),
+        ValidArgsFunction: cmd.ValidArgsFunction,
 		//Args cobra.PositionalArgs
-		//ArgAliases []string
-		//BashCompletionFunction string
-		//Deprecated string
+        ArgAliases: copyStringSlice(cmd.ArgAliases),
+        BashCompletionFunction: cmd.BashCompletionFunction,
+        Deprecated: cmd.Deprecated,
 		//Annotations map[string]string
-		//Version string
-		//PersistentPreRun func(cmd *cobra.Command, args []string)
-		//PersistentPreRunE func(cmd *cobra.Command, args []string) error
-		//PreRun func(cmd *cobra.Command, args []string)
-		//PreRunE func(cmd *cobra.Command, args []string) error
-		//Run func(cmd *cobra.Command, args []string)
-		//RunE func(cmd *cobra.Command, args []string) error
-		//PostRun func(cmd *cobra.Command, args []string)
-		//PostRunE func(cmd *cobra.Command, args []string) error
-		//PersistentPostRun func(cmd *cobra.Command, args []string)
-		//PersistentPostRunE func(cmd *cobra.Command, args []string) error
+        Version: cmd.Version,
+        PersistentPreRun: cmd.PersistentPostRun,
+		PersistentPreRunE: cmd.PersistentPreRunE,
+		PreRun: cmd.PreRun,
+		PreRunE: cmd.PreRunE,
+		Run: cmd.Run,
+		RunE: cmd.RunE,
+		PostRun: cmd.PostRun,
+		PostRunE: cmd.PostRunE,
+		PersistentPostRun: cmd.PersistentPostRun,
+		PersistentPostRunE: cmd.PersistentPostRunE,
 		//args []string
 		//flagErrorBuf *bytes.Buffer
 		//flags *pflag.FlagSet
@@ -143,15 +143,15 @@ func NewCommandState2(cmd *cobra.Command) *CommandState2 {
 		//commandsMaxUseLen         int
 		//commandsMaxCommandPathLen int
 		//commandsMaxNameLen        int
-		//TraverseChildren bool
-		//Hidden bool
-		//SilenceErrors bool
-		//SilenceUsage bool
-		//DisableFlagParsing bool
-		//DisableAutoGenTag bool
-		//DisableFlagsInUseLine bool
-		//DisableSuggestions bool
-		//SuggestionsMinimumDistance int
+		TraverseChildren: cmd.TraverseChildren,
+		Hidden: cmd.Hidden,
+		SilenceErrors: cmd.SilenceErrors,
+		SilenceUsage: cmd.SilenceUsage,
+		DisableFlagParsing: cmd.DisableFlagParsing,
+		DisableAutoGenTag: cmd.DisableAutoGenTag,
+		DisableFlagsInUseLine: cmd.DisableFlagsInUseLine,
+		DisableSuggestions: cmd.DisableSuggestions,
+		SuggestionsMinimumDistance: cmd.SuggestionsMinimumDistance,
 
 	}
 
