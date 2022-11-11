@@ -64,7 +64,7 @@ func formatGroup(group []common.RawValue, valueStyle, descStyle string, nospace 
 	// If yes, we must add a default style pattern in order to match descriptions.
 	hasAliases := hasAliasedCompletions(group)
 	if hasAliases {
-		zstyles = append(zstyles, formatZstyleValue("(-- *)", descStyle))
+		zstyles[len(zstyles)-1] = formatZstyleValue("(-- *)", descStyle)
 	}
 
 	// Get the correct padding for each value, including those to proposed

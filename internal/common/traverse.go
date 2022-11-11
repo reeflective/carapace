@@ -101,8 +101,14 @@ func filterError(args []string, err error) error {
 			return nil
 		}
 
-		if re := regexp.MustCompile(`invalid argument ".*" for "(?P<shorthand>-., )?(?P<flag>.*)" flag:.*`); re.MatchString(msg) && previous == re.FindStringSubmatch(msg)[2] {
-			// ignore invalid argument for flag currently being completed (e.g. empty IntSlice)
+		// Ignore invalid argument for flag currently being completed (e.g. empty IntSlice)
+		// Match either the short flag, which we must trim from a potential comma, or the long one
+		re := regexp.MustCompile(`invalid argument ".*" for "(?P<shorthand>-., )?(?P<flag>.*)" flag:.*`)
+
+		short := strings.TrimSuffix(re.FindStringSubmatch(msg)[1], ", ") // The space following the comma is important
+		long := re.FindStringSubmatch(msg)[2]
+
+		if re.MatchString(msg) && (previous == short || previous == long) {
 			return nil
 		}
 	}

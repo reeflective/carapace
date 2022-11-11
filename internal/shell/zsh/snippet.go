@@ -53,7 +53,7 @@ function _%v_completion {
     local displays=(${candidates##*$'\t'})
 
     # Suffix
-    local suffix=-S' '
+    local suffix=-qS' '
     [[ ${vals[1]} == *$'\001' ]] && suffix=
     # shellcheck disable=SC2034,2206
     vals=(${vals%%%%$'\001'*})
