@@ -376,6 +376,7 @@ func actionFlags(cmd *cobra.Command) Action {
 			if f.Changed &&
 				!strings.Contains(f.Value.Type(), "Slice") &&
 				!strings.Contains(f.Value.Type(), "Array") &&
+				!strings.Contains(f.Value.Type(), "map") &&
 				f.Value.Type() != "count" {
 				return // don't repeat flag
 			}
