@@ -68,13 +68,33 @@ func getRepeatableFlag(flag *pflag.Flag, action Action) Action {
 	}
 
 	flagType := flag.Value.Type()
+	flagTypeRepeatable := strings.HasPrefix(flagType, "[]") || strings.HasPrefix(flagType, "map[")
 
-	if !strings.HasPrefix(flagType, "[]") && !strings.HasPrefix(flagType, "map[") {
+	if !flagTypeRepeatable {
 		return action
 	}
 
+	// WARN: There must be a better way to check parse the values than this.
+	values := strings.TrimPrefix(flag.Value.String(), "map")
+	values = strings.TrimPrefix(values, "[")
+	values = strings.TrimSuffix(values, "]")
+
 	listAction := ActionMultiParts(",", func(c Context) Action {
-		return action.Invoke(c).Filter(c.Parts).ToA()
+		// First filter out all the values that have been found
+		// with other invocations of this flag. Note that this
+		// also includes values set at runtime, or with NoOptDefVal.
+		var alreadySet []string
+
+		if flagTypeRepeatable {
+			// This might have the unintended effect or pulling out
+			// the last comma, not sure if this is dangerous.
+			alreadySet = append(alreadySet, strings.Split(values, " ")...)
+		} else {
+			alreadySet = append(alreadySet, flag.Value.String())
+		}
+
+		// Finally remove the parts found in the current string.
+		return action.Invoke(c).Filter(alreadySet).Filter(c.Parts).ToA()
 	})
 
 	return listAction
