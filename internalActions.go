@@ -123,7 +123,7 @@ func actionFlags(cmd *cobra.Command) Action {
 
 		// Because we might have modifier functions that
 		// need to match their unprefixed/modified values.
-		flagAction = flagAction.SuffixValues(noOptDefValues, "=").NoSpace()
+		flagAction = flagAction.SuffixValues(noOptDefValues, "=")
 
 		// Apply any stacked flags prefixing the all values to be completed
 		if isShorthandSeries {

@@ -77,7 +77,7 @@ func getTargetAction(current, previous string, ctx Context, cmd *cobra.Command, 
 
 	// Else we assume that the argument is a flag, trying to split for embedded args
 	if !cmd.DisableFlagParsing && strings.HasPrefix(current, "-") && !common.IsDash(cmd) {
-		return completeOption(cmd, ctx, current, targetAction)
+		return completeFlag(cmd, ctx, current, targetAction)
 	}
 
 	// Else, we deal with a positional word (either arg or command)
@@ -107,19 +107,20 @@ func getTargetAction(current, previous string, ctx Context, cmd *cobra.Command, 
 	return current, targetAction, ctx
 }
 
-func completeOption(cmd *cobra.Command, ctx Context, current string, targetAction Action) (string, Action, Context) {
-	// If there is no embedded argument, just parse the next argument word
-	if !strings.Contains(current, "=") {
+func completeFlag(cmd *cobra.Command, ctx Context, current string, targetAction Action) (string, Action, Context) {
+	// Always try to dected a flag for completion
+	flag := lookupFlag(cmd, current)
+
+	if flag == nil || !strings.Contains(current, "=") {
 		return current, actionFlags(cmd), ctx
 	}
 
 	// If we have found such a split in the string, proceed.
 	// First lookup the flag in the last word.
 	// We must find a flag, or we return an empty Action.
-	flag := lookupFlag(cmd, current)
-	if flag == nil || flag.NoOptDefVal == "" {
-		return current, targetAction, ctx
-	}
+	// if flag.NoOptDefVal != "" {
+	// 	return current, actionFlags(cmd), ctx
+	// }
 
 	// Else, process the string and build the completion context.
 	action := storage.getFlag(cmd, flag.Name)
@@ -137,10 +138,6 @@ func findAction(targetCmd *cobra.Command, targetArgs []string) Action {
 		return storage.getPositional(targetCmd, 0)
 	}
 
-	// lastArg := targetArgs[len(targetArgs)-1]
-	// if strings.HasSuffix(lastArg, " ") { // TODO is this still correct/needed?
-	// 	return storage.getPositional(targetCmd, len(targetArgs))
-	// }
 	return storage.getPositional(targetCmd, len(targetArgs)-1)
 }
 
@@ -152,14 +149,19 @@ func findTarget(cmd *cobra.Command, args []string) (*cobra.Command, []string, er
 	return common.TraverseLenient(cmd, origArg)
 }
 
+// lookupFlag must actually deal with an arbitrary number of potential short arguments.
 func lookupFlag(cmd *cobra.Command, arg string) (flag *pflag.Flag) {
 	nameOrShorthand := strings.TrimLeft(strings.SplitN(arg, "=", 2)[0], "-")
 
+	// If we are treating with a long flag request
 	if strings.HasPrefix(arg, "--") {
-		flag = cmd.Flags().Lookup(nameOrShorthand)
-	} else if strings.HasPrefix(arg, "-") && len(nameOrShorthand) > 0 {
+		return cmd.Flags().Lookup(nameOrShorthand)
+	}
+
+	if strings.HasPrefix(arg, "-") && len(nameOrShorthand) > 0 {
 		flag = cmd.Flags().ShorthandLookup(string(nameOrShorthand[len(nameOrShorthand)-1]))
 	}
+
 	return
 }
 

@@ -29,7 +29,7 @@ function _%v_completion {
 
   # Header contains message, and all suffix specifications
   header=${lines[1]//$(printf '\t')/:}
-  IFS=$':' read retcode message suffix rm_suffix space_suffix <<< "${header}"
+  IFS=$':' read retcode message suffix rm_suffix <<< "${header}"
   [[ -n ${message} ]] && _message -r "${message}"
 
   # Styles

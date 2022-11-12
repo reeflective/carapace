@@ -279,8 +279,7 @@ func makeHeader(compSuffix, removeSuffix string) string {
 
 	var message string
 	var suffix string
-	var spaceSuffix string // chars
-	var rmSuffix string    // chars removed on space or same character if entered
+	var rmSuffix string // chars removed on space or same character if entered
 
 	retcode = "0"
 
@@ -290,7 +289,7 @@ func makeHeader(compSuffix, removeSuffix string) string {
 			style.SGR(style.Carapace.Error),
 			"ERR",
 			style.SGR("fg-default"),
-			sanitizer.Replace(common.CompletionMessage),
+			displaySanitizer.Replace(common.CompletionMessage),
 			style.SGR("fg-default"))
 	}
 
@@ -306,7 +305,7 @@ func makeHeader(compSuffix, removeSuffix string) string {
 
 	// Assemble all parts in one header line.
 	msg := strings.Join([]string{retcode, message}, "\t")
-	suffixes := strings.Join([]string{suffix, rmSuffix, spaceSuffix}, "\t")
+	suffixes := strings.Join([]string{suffix, rmSuffix}, "\t")
 
 	return strings.Join([]string{msg, suffixes}, "\t")
 }
