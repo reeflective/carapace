@@ -11,6 +11,7 @@ import (
 // Snippet creates the zsh completion script.
 func Snippet(cmd *cobra.Command) string {
 	return fmt.Sprintf(`#compdef %v
+
 function _%v_completion {
   local IFS=$'\n'
   
@@ -26,14 +27,18 @@ function _%v_completion {
     local lines=($(echo ${words} | sed 's/$/"/' | CARAPACE_ZSH_HASH_DIRS="$(hash -d)" xargs %v _carapace zsh))
   fi
 
-  # Return code and message (sanitized)
+  # Header contains message, and all suffix specifications
   header=${lines[1]//$(printf '\t')/:}
-  IFS=$':' read retcode message <<< "${header}"
+  IFS=$':' read retcode message suffix rm_suffix space_suffix <<< "${header}"
   [[ -n ${message} ]] && _message -r "${message}"
 
   # Styles
   export ZLS_COLOURS="${lines[2]}"
   zstyle ":completion:${curcontext}:*" list-colors "${lines[2]}"
+
+  # Suffixes, always set a the global level for all groups,
+  # since we can't pass these settings different for each group.
+  local compOpts=( -qS "${suffix}" -r "${rm_suffix}" -Q )
   
   # Grouped completions
   # shellcheck disable=SC2034,2206
@@ -52,14 +57,8 @@ function _%v_completion {
     # shellcheck disable=SC2034,2206
     local displays=(${candidates##*$'\t'})
 
-    # Suffix
-    local suffix=-qS' '
-    [[ ${vals[1]} == *$'\001' ]] && suffix=
-    # shellcheck disable=SC2034,2206
-    vals=(${vals%%%%$'\001'*})
-
     # Generate completions
-    _describe -t "$tag-${group// /-}" "$group" displays vals ${suffix} -Q
+    _describe -t "$tag-${group// /-}" "$group" displays vals "${compOpts[@]}" 
   done
 }
 compquote '' 2>/dev/null && _%v_completion

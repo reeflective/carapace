@@ -11,7 +11,13 @@ import (
 
 // ActionRawValues formats values, structured by tag:groups, for zsh.
 func ActionRawValues(currentWord string, nospace bool, values common.RawValues) string {
+	// Compute and adjust all defaults first.
 	valueStyle, descStyle := setDefaultValueStyle()
+	suffix := " "
+
+	if nospace {
+		suffix = ""
+	}
 
 	// First go over all values, in order to:
 	// - Filter candidates not matching the current prefix callback
@@ -34,7 +40,7 @@ func ActionRawValues(currentWord string, nospace bool, values common.RawValues) 
 		group := groups[header]
 
 		// Generate all formatted completion strings and associated zstyles for the group.
-		values, styles := formatGroup(group, valueStyle, descStyle, nospace, maxLen)
+		values, styles := formatGroup(group, valueStyle, descStyle, maxLen)
 
 		// Generate the complete group string, with tag:group header and its completions,
 		groupValues = append(groupValues, fmt.Sprintf("%v %v", header, strings.Join(values, " ")))
@@ -48,7 +54,7 @@ func ActionRawValues(currentWord string, nospace bool, values common.RawValues) 
 	}
 
 	return fmt.Sprintf("%v\n%v\n%v",
-		makeHeader(),                    // Contains a return code and an optional message to show.
+		makeHeader(suffix, "\"'"),       // Contains a return code and an optional message to show.
 		strings.Join(zstyles, ":"),      // All styles for all groups
 		strings.Join(groupValues, "\n"), // Each group string on a new line.
 	)
@@ -56,7 +62,7 @@ func ActionRawValues(currentWord string, nospace bool, values common.RawValues) 
 
 // formatGroup generates all strings (completions and styles) for a given group of completions.
 // This function optimizes the number of iterations performed on the group's values (2 passes).
-func formatGroup(group []common.RawValue, valueStyle, descStyle string, nospace bool, maxLen int) ([]string, []string) {
+func formatGroup(group []common.RawValue, valueStyle, descStyle string, maxLen int) ([]string, []string) {
 	completions := make([]string, len(group))
 	zstyles := make([]string, len(group)+1)
 
@@ -76,7 +82,7 @@ func formatGroup(group []common.RawValue, valueStyle, descStyle string, nospace 
 		// Generate completion string for this value, respecting/considering a few things:
 		// - If some values are to be displayed next to the same description (eg. -f/--file)
 		// - If we must use global padding or per-group padding.
-		completions[idx] = formatValue(val, valueStyle, nospace, hasAliases, maxLenGrp, maxLen)
+		completions[idx] = formatValue(val, valueStyle, hasAliases, maxLenGrp, maxLen)
 
 		// Generate the corresponding zstyle string.
 		zstyles[idx] = formatStyle(val, descStyle, hasAliases, maxLenGrp, maxLen)
@@ -87,15 +93,15 @@ func formatGroup(group []common.RawValue, valueStyle, descStyle string, nospace 
 
 // formatValues generates a completion string from a value, taking into account various requirements and parameters.
 // Those parameters are mostly here for us to generate values that are conform to their associated zstyles.
-func formatValue(val common.RawValue, style string, nospace, hasAliases bool, maxLenGrp, maxLenAll int) string {
+func formatValue(val common.RawValue, style string, hasAliases bool, maxLenGrp, maxLenAll int) string {
 	// Any padding, if used, must be computed before sanitizing the value
 	valueLen := len(val.Value)
 
 	// Sanitize each part of the completion (actual/display/description)
-	val = sanitizeCompletion(val, style, nospace)
+	val = sanitizeCompletion(val, style)
 
 	// Shorthands
-	comp, display, desc := val.Value, val.Display, val.TrimmedDescription()
+	comp, display, desc := val.Value+val.SuffixRemovable, val.Display, val.TrimmedDescription()
 
 	// When the completion has no description, we don't need to take any
 	// parameters and constraints into account.
@@ -150,14 +156,10 @@ func formatStyle(val common.RawValue, descStyle string, hasAliases bool, maxLenG
 
 // sanitizeCompletion applies a series of string sanitizers to the completion
 // candidate, its display value and its description.
-func sanitizeCompletion(val common.RawValue, valueStyle string, nospace bool) common.RawValue {
+func sanitizeCompletion(val common.RawValue, valueStyle string) common.RawValue {
 	// The Value is what will actually be inserted in the command-line.
 	val.Value = sanitizer.Replace(val.Value)
 	val.Value = quoteValue(val.Value)
-
-	if nospace {
-		val.Value += "\001"
-	}
 
 	// The display value is used only when displaying the completions,
 	// and needs a different sanitizer, in order not to mess up the shell
@@ -272,26 +274,41 @@ func setDefaultValueStyle() (valueStyle, descriptionStyle string) {
 }
 
 // Creates a header line with some indications for the shell caller.
-func makeHeader() (header string) {
-	// TODO: Find a way to know if actually want to complete something.
-	header += "0"
+func makeHeader(compSuffix, removeSuffix string) string {
+	var retcode string
 
-	header += "\t"
+	var message string
+	var suffix string
+	var spaceSuffix string // chars
+	var rmSuffix string    // chars removed on space or same character if entered
+
+	retcode = "0"
 
 	// Format the completion message if needed
-	if common.CompletionMessage == "" {
-		return
+	if common.CompletionMessage != "" {
+		message = fmt.Sprintf("\x1b[%vm%v\x1b[%vm %v\x1b[%vm",
+			style.SGR(style.Carapace.Error),
+			"ERR",
+			style.SGR("fg-default"),
+			sanitizer.Replace(common.CompletionMessage),
+			style.SGR("fg-default"))
 	}
 
-	header += fmt.Sprintf("\x1b[%vm%v\x1b[%vm %v\x1b[%vm",
-		style.SGR(style.Carapace.Error),
-		"ERR",
-		style.SGR("fg-default"),
-		sanitizer.Replace(common.CompletionMessage),
-		style.SGR("fg-default"),
-	)
+	// We either have a specific suffix, other than a space.
+	if compSuffix != "" {
+		suffix = fmt.Sprintf("%v", compSuffix)
+		rmSuffix = fmt.Sprintf("%v", quoter.Replace(compSuffix))
+	}
 
-	return
+	if removeSuffix != "" {
+		rmSuffix = fmt.Sprintf("%v%v", quoter.Replace(removeSuffix), quoter.Replace(suffix))
+	}
+
+	// Assemble all parts in one header line.
+	msg := strings.Join([]string{retcode, message}, "\t")
+	suffixes := strings.Join([]string{suffix, rmSuffix, spaceSuffix}, "\t")
+
+	return strings.Join([]string{msg, suffixes}, "\t")
 }
 
 func hasAliasedCompletions(vals []common.RawValue) bool {

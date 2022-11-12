@@ -172,6 +172,37 @@ func (a Action) TagF(f func(value string) (tag string)) Action {
 	})
 }
 
+// Suffix adds a suffix to all raw values contained in the action.
+// This suffix can automatically be removed upon entering a space
+// character, or some other special characters in some context.
+func (a Action) Suffix(suffix string, removable bool) Action {
+	return ActionCallback(func(c Context) Action {
+		invoked := a.Invoke(c)
+		for index := range invoked.rawValues {
+			invoked.rawValues[index].SuffixRemovable = suffix
+		}
+
+		return invoked.ToA()
+	})
+}
+
+// SuffixValues adds a a suffix to all values currently contained by
+// the Action, and which are found in the values array passed as parameter.
+func (a Action) SuffixValues(values []string, suffix string) Action {
+	return ActionCallback(func(c Context) Action {
+		invoked := a.Invoke(c)
+		for index, val := range invoked.rawValues {
+			for _, value := range values {
+				if val.Value == value {
+					invoked.rawValues[index].SuffixRemovable = suffix
+				}
+			}
+		}
+
+		return invoked.ToA()
+	})
+}
+
 // Chdir changes the current working directory to the named directory during invocation.
 func (a Action) Chdir(dir string) Action {
 	return ActionCallback(func(c Context) Action {

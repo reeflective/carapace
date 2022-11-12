@@ -16,8 +16,9 @@ type RawValue struct {
 	Style       string
 
 	// Shell-specific (ZSH) structuring
-	Group string
-	Tag   string
+	Group           string
+	Tag             string
+	SuffixRemovable string // Used for = in -f=<val>, or commas in list, etc
 }
 
 // TrimmedDescription returns the trimmed description.
