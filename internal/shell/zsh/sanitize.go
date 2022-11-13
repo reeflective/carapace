@@ -51,15 +51,6 @@ var quoter = strings.NewReplacer(
 	`:`, `\:`,
 )
 
-var descriptionSanitizer = strings.NewReplacer(
-	// Like any other display, we always have right to one line.
-	"\n", ``,
-	"\r", ``,
-	"\t", ``,
-	"\f", ``,
-	`:`, `\:`,
-)
-
 func quoteValue(s string) string {
 	if strings.HasPrefix(s, "~/") || NamedDirectories.Matches(s) {
 		return "~" + quoter.Replace(strings.TrimPrefix(s, "~")) // assume file path expansion

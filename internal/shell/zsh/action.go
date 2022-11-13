@@ -43,7 +43,7 @@ func ActionRawValues(currentWord string, nospace bool, values common.RawValues) 
 		values, styles := formatGroup(group, valueStyle, descStyle, maxLen)
 
 		// Generate the complete group string, with tag:group header and its completions,
-		groupValues = append(groupValues, fmt.Sprintf("%v %v", header, strings.Join(values, " ")))
+		groupValues = append(groupValues, fmt.Sprintf("%v\n%v", header, strings.Join(values, "\n")))
 
 		// And append the styles, passed all at once, irrespectively of their groups.
 		zstyles = append(zstyles, styles...)
@@ -54,9 +54,9 @@ func ActionRawValues(currentWord string, nospace bool, values common.RawValues) 
 	}
 
 	return fmt.Sprintf("%v\n%v\n%v",
-		makeHeader(suffix, "\"'"),       // Contains a return code and an optional message to show.
-		strings.Join(zstyles, ":"),      // All styles for all groups
-		strings.Join(groupValues, "\n"), // Each group string on a new line.
+		makeHeader(suffix, "\"'"),         // Contains a return code and an optional message to show.
+		strings.Join(zstyles, ":"),        // All styles for all groups
+		strings.Join(groupValues, "\n\n"), // Groups are separated by an empty line.
 	)
 }
 
@@ -106,13 +106,13 @@ func formatValue(val common.RawValue, style string, hasAliases bool, maxLenGrp, 
 	// When the completion has no description, we don't need to take any
 	// parameters and constraints into account.
 	if strings.TrimSpace(val.Description) == "" {
-		return fmt.Sprintf("'%v\t%v'", comp, display)
+		return fmt.Sprintf("%v\t%v", comp, display)
 	}
 
 	// Else we have a description, and then requirements make the actual string need to vary in format.
 	// First, if there are completions to be printed on the same line, we format as needed.
 	if hasAliases {
-		return fmt.Sprintf("'%v\t%v:%v'", comp, display, desc)
+		return fmt.Sprintf("%v\t%v:%v", comp, display, desc)
 	}
 
 	// Else, we have a description but no two values in this group are aliases of each other,
@@ -120,7 +120,7 @@ func formatValue(val common.RawValue, style string, hasAliases bool, maxLenGrp, 
 	// We either must use an global padding (all groups), or per-group padding.
 	padding := getPadding(valueLen, maxLenGrp, maxLenAll)
 
-	return fmt.Sprintf("'%v\t%v%v -- %v'", comp, display, padding, desc)
+	return fmt.Sprintf("%v\t%v%v -- %v", comp, display, padding, desc)
 }
 
 // formatStyle makes the style strings for a completion, respecting its padding and considering
@@ -165,9 +165,7 @@ func sanitizeCompletion(val common.RawValue, valueStyle string) common.RawValue 
 	// and needs a different sanitizer, in order not to mess up the shell
 	// when it tries to know where the description starts (eg. with IPv6)
 	val.Display = displaySanitizer.Replace(val.Display)
-
-	// Then sanitize the description only.
-	val.Description = descriptionSanitizer.Replace(val.Description)
+	val.Description = displaySanitizer.Replace(val.Description)
 
 	// Style
 	if val.Style == "" || ui.ParseStyling(val.Style) == nil {
@@ -239,7 +237,7 @@ func setGroupHeader(val common.RawValue) string {
 
 	// We escape both the tag/group strings, and
 	// the entire string itself, like for completions.
-	return fmt.Sprintf("'%v:%v'", tag, group)
+	return fmt.Sprintf("%v:%v", tag, group)
 }
 
 // formatZstyle creates a zstyle matcher for given display stings.
@@ -293,7 +291,7 @@ func makeHeader(compSuffix, removeSuffix string) string {
 		message = fmt.Sprintf("\x1b[%vm%v\x1b[%vm %v\x1b[%vm",
 			style.SGR(style.Carapace.Error),
 			"ERR",
-			style.SGR("fg-default"),
+			style.SGR(style.Dim),
 			quoter.Replace(common.CompletionMessage),
 			style.SGR("fg-default"))
 	}
