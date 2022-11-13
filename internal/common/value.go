@@ -21,6 +21,15 @@ type RawValue struct {
 	SuffixRemovable string // Used for = in -f=<val>, or commas in list, etc
 }
 
+// A tag can be used by some shells to classify and manipulate their completion values.
+type Tag string
+
+const (
+	Command Tag = "command"
+	Flag    Tag = "option"
+	Value   Tag = "value"
+)
+
 // TrimmedDescription returns the trimmed description.
 func (r RawValue) TrimmedDescription() string {
 	maxLength := 80

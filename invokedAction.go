@@ -70,7 +70,7 @@ func (a InvokedAction) Merge(others ...InvokedAction) InvokedAction {
 		c := uniqueRawValues[v]
 		rawValues = append(rawValues, c)
 	}
-	return InvokedAction{actionRawValues(rawValues...).noSpace(nospace).skipCache(skipcache)}
+	return InvokedAction{actionRawValues(rawValues...).noSpace(nospace).skipCache(skipcache).withHint(a.hint)}
 }
 
 // Prefix adds a prefix to values (only the ones inserted, not the display values)
@@ -163,7 +163,17 @@ func (a InvokedAction) ToMultiPartsA(dividers ...string) Action {
 	})
 }
 
+// onIninalize can take some steps to make everything read for all shells.
+func (a InvokedAction) onInitialize(callbackValue string) InvokedAction {
+	// The final hint present is used by some shells
+	common.CompletionHint = a.hint
+	common.CompletionMessage = a.message
+	return a
+}
+
 func (a InvokedAction) value(shell string, callbackValue string) string { // TODO use context instead?
+	a = a.onInitialize(callbackValue)
+
 	shellFuncs := map[string]func(currentWord string, nospace bool, values common.RawValues) string{
 		"bash":       bash.ActionRawValues,
 		"bash-ble":   bash_ble.ActionRawValues,

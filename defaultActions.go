@@ -247,17 +247,37 @@ func ActionMessage(msg string, a ...interface{}) Action {
 		msg = fmt.Sprintf(msg, a...)
 	}
 
-	// We don't need to apply any prefix or even take care of
-	// any context: the current callback value will be added
-	// by the complete function when and if it finds a message
-	// to be added to completions.
-	common.CompletionMessage = msg
+	return ActionCallback(func(c Context) Action {
+		var action Action
+		// We don't need to apply any prefix or even take care of
+		// any context: the current callback value will be added
+		// by the complete function when and if it finds a message
+		// to be added to completions.
+		action.message = msg
 
-	// Return a blank action to conform to required return values
-	// and potentially to enable to users to further work on completions.
-	var action Action
+		return action.Invoke(c).ToA()
+	})
+}
+
+// ActionHint TODO: Should be changed name to enable passing various logs,
+// or at least a way to let different styles of messages being passed easily
+// without cluttering the carapace API.
+func ActionHint(msg string, a ...interface{}) Action {
+	// We store the message variable, which will be used later
+	// either as a completion (all shells but ZSH), or directly
+	// as a message (ZSH)
+	if len(a) > 0 {
+		msg = fmt.Sprintf(msg, a...)
+	}
 
 	return ActionCallback(func(c Context) Action {
+		var action Action
+		// We don't need to apply any prefix or even take care of
+		// any context: the current callback value will be added
+		// by the complete function when and if it finds a message
+		// to be added to completions.
+		action.hint = msg
+
 		return action.Invoke(c).ToA()
 	})
 }

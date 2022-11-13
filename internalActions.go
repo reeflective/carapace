@@ -59,7 +59,7 @@ func actionSubcommands(cmd *cobra.Command) Action {
 	// And gather them under their group as description
 	grouper := groupCommands(cmd, groups)
 
-	return ActionValuesDescribed(vals...).GroupF(grouper).Tag("command")
+	return ActionValuesDescribed(vals...).GroupF(grouper).Tag(string(common.Command))
 }
 
 // Generates a function to tag command completions with their corresponding group.
@@ -119,7 +119,7 @@ func actionFlags(cmd *cobra.Command) Action {
 		})
 
 		// First generate the values without prefixing them...
-		flagAction := ActionValuesDescribed(vals...)
+		flagAction := ActionValuesDescribed(vals...).Tag(string(common.Flag))
 
 		// Because we might have modifier functions that
 		// need to match their unprefixed/modified values.
@@ -136,6 +136,7 @@ func actionFlags(cmd *cobra.Command) Action {
 
 func buildflagValues(cmd *cobra.Command, c *Context, f *pflag.Flag, series bool) (bool, string, bool, string) {
 	var long, short string
+
 	yesL, yesS := false, false
 
 	if f.Deprecated != "" {
@@ -163,7 +164,9 @@ func buildflagValues(cmd *cobra.Command, c *Context, f *pflag.Flag, series bool)
 					if sflag.Value.Type() != "bool" &&
 						sflag.Value.Type() != "count" &&
 						sflag.NoOptDefVal == "" {
+
 						yesL = false
+
 						return yesL, long, yesS, short
 					}
 				}
@@ -172,6 +175,7 @@ func buildflagValues(cmd *cobra.Command, c *Context, f *pflag.Flag, series bool)
 			// Else we have a valid stacked (shorthand) flag
 			long = f.Shorthand
 		}
+
 		return yesL, long, yesS, short
 	}
 

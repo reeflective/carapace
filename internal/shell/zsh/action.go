@@ -167,7 +167,7 @@ func sanitizeCompletion(val common.RawValue, valueStyle string) common.RawValue 
 	val.Display = displaySanitizer.Replace(val.Display)
 
 	// Then sanitize the description only.
-	val.Description = displaySanitizer.Replace(val.Description)
+	val.Description = descriptionSanitizer.Replace(val.Description)
 
 	// Style
 	if val.Style == "" || ui.ParseStyling(val.Style) == nil {
@@ -222,11 +222,16 @@ func groupValues(vals []common.RawValue, current string) ([]string, map[string][
 func setGroupHeader(val common.RawValue) string {
 	// Set defaults
 	if val.Tag == "" {
-		val.Tag = "values"
+		val.Tag = string(common.Value)
+		if val.Group == "" {
+			val.Group = val.Tag + "s"
+		}
 	}
 
 	if val.Group == "" {
-		val.Group = "completions"
+		if val.Group == "" {
+			val.Group = val.Tag + "s"
+		}
 	}
 
 	tag := quoter.Replace(val.Tag)
@@ -289,7 +294,17 @@ func makeHeader(compSuffix, removeSuffix string) string {
 			style.SGR(style.Carapace.Error),
 			"ERR",
 			style.SGR("fg-default"),
-			displaySanitizer.Replace(common.CompletionMessage),
+			quoter.Replace(common.CompletionMessage),
+			style.SGR("fg-default"))
+	}
+
+	// Format the completion message if needed
+	if common.CompletionHint != "" {
+		message = fmt.Sprintf("\x1b[%vm%v\x1b[%vm %v\x1b[%vm",
+			style.SGR(style.Dim),
+			"",
+			style.SGR(style.Dim),
+			displaySanitizer.Replace(common.CompletionHint),
 			style.SGR("fg-default"))
 	}
 
