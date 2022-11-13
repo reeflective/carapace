@@ -102,20 +102,16 @@ func actionFlags(cmd *cobra.Command) Action {
 				return
 			}
 
+			// Add the completion values we've built
 			if yesS {
 				vals = append(vals, short, flag.Usage)
 			}
 
 			vals = append(vals, long, flag.Usage)
 
-			// All flags which have a default value if no argument is
-			// specified with them, do receive an autoremovable suffix
-			if flag.NoOptDefVal != "" {
-				if yesS {
-					noOptDefValues = append(noOptDefValues, short)
-				}
-				noOptDefValues = append(noOptDefValues, long)
-			}
+			// And modify completions with any potential spec.
+			suffixedVals := addflagSpecSuffix(flag, long, short, yesS)
+			noOptDefValues = append(noOptDefValues, suffixedVals...)
 		})
 
 		// First generate the values without prefixing them...
@@ -125,13 +121,28 @@ func actionFlags(cmd *cobra.Command) Action {
 		// need to match their unprefixed/modified values.
 		flagAction = flagAction.SuffixValues(noOptDefValues, "=")
 
-		// Apply any stacked flags prefixing the all values to be completed
+		// Apply any stacked flags prefix.
 		if isShorthandSeries {
-			return flagAction.Invoke(ctx).Prefix(ctx.CallbackValue).ToA().noSpace(true)
+			return flagAction.Invoke(ctx).Prefix(ctx.CallbackValue).ToA()
 		}
 
 		return flagAction
 	})
+}
+
+// addflagSpecSuffix.
+func addflagSpecSuffix(flag *pflag.Flag, long, short string, isshort bool) []string {
+	var noOptDefValues []string
+
+	// Having a specified noOptDefValue adds an equal sign in most cases
+	if flag.NoOptDefVal != "" && flag.Value.Type() != "bool" {
+		if isshort {
+			noOptDefValues = append(noOptDefValues, short)
+		}
+		noOptDefValues = append(noOptDefValues, long)
+	}
+
+	return noOptDefValues
 }
 
 func buildflagValues(cmd *cobra.Command, c *Context, f *pflag.Flag, series bool) (bool, string, bool, string) {

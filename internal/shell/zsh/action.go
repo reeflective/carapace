@@ -13,20 +13,13 @@ import (
 func ActionRawValues(currentWord string, nospace bool, values common.RawValues) string {
 	// Compute and adjust all defaults first.
 	valueStyle, descStyle := setDefaultValueStyle()
-	suffix := " "
-
-	if nospace {
-		suffix = ""
-	}
 
 	// First go over all values, in order to:
 	// - Filter candidates not matching the current prefix callback
 	// - Group them according to their tag:group specifications,so that they
 	//   can compute their paddings and styles independently.
 	// - Compute a global max padding length, irrespectively of groups
-	//
-	// We do NOT sanitize values yet.
-	headers, groups, maxLen, onlyCommands := groupValues(values, currentWord)
+	groups, onlyCommands, maxLen := scanValues(values, currentWord, nospace)
 
 	// We actually only pad values globally when all groups are commands.
 	if !onlyCommands {
@@ -36,8 +29,8 @@ func ActionRawValues(currentWord string, nospace bool, values common.RawValues) 
 	var zstyles []string
 	var groupValues []string
 
-	for _, header := range headers {
-		group := groups[header]
+	for _, header := range groups.headers {
+		group := groups.vals[header]
 
 		// Generate all formatted completion strings and associated zstyles for the group.
 		values, styles := formatGroup(group, valueStyle, descStyle, maxLen)
@@ -53,11 +46,12 @@ func ActionRawValues(currentWord string, nospace bool, values common.RawValues) 
 		zstyles = make([]string, 0)
 	}
 
-	return fmt.Sprintf("%v\n%v\n%v",
-		makeHeader(suffix, "\"'"),         // Contains a return code and an optional message to show.
-		strings.Join(zstyles, ":"),        // All styles for all groups
-		strings.Join(groupValues, "\n\n"), // Groups are separated by an empty line.
-	)
+	// Header line : The header contains any message that has to be printed, and computed suffix matchers/removers.
+	ret, message := formatMessage()
+	suffix, removePatterns := formatSuffixMatchers(groups.suffix, groups.suffixRemove)
+	header := strings.Join([]string{ret, message, suffix, removePatterns}, "\t")
+
+	return fmt.Sprintf("%v\n%v\n%v", header, strings.Join(zstyles, ":"), strings.Join(groupValues, "\n\n"))
 }
 
 // formatGroup generates all strings (completions and styles) for a given group of completions.
@@ -175,71 +169,6 @@ func sanitizeCompletion(val common.RawValue, valueStyle string) common.RawValue 
 	return val
 }
 
-// groupValues groups all completions in their groups, and filters values not matching the current word.
-func groupValues(vals []common.RawValue, current string) ([]string, map[string][]common.RawValue, int, bool) {
-	var headers []string
-
-	groups := make(map[string][]common.RawValue)
-	maxLength := 0
-	onlyCommands := true
-
-	for _, val := range vals {
-		if !strings.HasPrefix(val.Value, current) {
-			continue
-		}
-
-		// Generate the tag:group header and store value
-		groupHeader := setGroupHeader(val)
-
-		group, exists := groups[groupHeader]
-		if !exists {
-			group = make([]common.RawValue, 0)
-			groups[groupHeader] = group
-
-			headers = append(headers, groupHeader)
-		}
-
-		group = append(group, val)
-		groups[groupHeader] = group
-
-		// Compute padding and other details
-		length := len(val.Display)
-		if length > maxLength {
-			maxLength = length
-		}
-
-		if val.Tag != "command" {
-			onlyCommands = false
-		}
-	}
-
-	return headers, groups, maxLength, onlyCommands
-}
-
-// setGroupHeader checks that all completions have a group, sets default if needed.
-func setGroupHeader(val common.RawValue) string {
-	// Set defaults
-	if val.Tag == "" {
-		val.Tag = string(common.Value)
-		if val.Group == "" {
-			val.Group = val.Tag + "s"
-		}
-	}
-
-	if val.Group == "" {
-		if val.Group == "" {
-			val.Group = val.Tag + "s"
-		}
-	}
-
-	tag := quoter.Replace(val.Tag)
-	group := quoter.Replace(val.Group)
-
-	// We escape both the tag/group strings, and
-	// the entire string itself, like for completions.
-	return fmt.Sprintf("%v:%v", tag, group)
-}
-
 // formatZstyle creates a zstyle matcher for given display stings.
 // `compadd -l` (one per line) accepts ansi escape sequences in display value but it seems in tabular view these are removed.
 // To ease matching in list mode, the display values have a hidden `\002` suffix.
@@ -276,23 +205,17 @@ func setDefaultValueStyle() (valueStyle, descriptionStyle string) {
 	return valueStyle, descriptionStyle
 }
 
-// Creates a header line with some indications for the shell caller.
-func makeHeader(compSuffix, removeSuffix string) string {
-	var retcode string
-
-	var message string
-	var suffix string
-	var rmSuffix string // chars removed on space or same character if entered
-
-	retcode = "0"
-
+// builds the first part of the header line, checking either errors or hints.
+func formatMessage() (retcode, message string) {
 	// Format the completion message if needed
 	if common.CompletionMessage != "" {
+		retcode = "1" // TODO VERY VERY UGLY
+
 		message = fmt.Sprintf("\x1b[%vm%v\x1b[%vm %v\x1b[%vm",
 			style.SGR(style.Carapace.Error),
 			"ERR",
 			style.SGR(style.Dim),
-			quoter.Replace(common.CompletionMessage),
+			common.CompletionMessage,
 			style.SGR("fg-default"))
 	}
 
@@ -302,66 +225,9 @@ func makeHeader(compSuffix, removeSuffix string) string {
 			style.SGR(style.Dim),
 			"",
 			style.SGR(style.Dim),
-			displaySanitizer.Replace(common.CompletionHint),
+			common.CompletionHint,
 			style.SGR("fg-default"))
 	}
 
-	// We either have a specific suffix, other than a space.
-	if compSuffix != "" {
-		suffix = fmt.Sprintf("%v", compSuffix)
-		rmSuffix = fmt.Sprintf("%v", quoter.Replace(compSuffix))
-	}
-
-	if removeSuffix != "" {
-		rmSuffix = fmt.Sprintf("%v%v", quoter.Replace(removeSuffix), quoter.Replace(suffix))
-	}
-
-	// Assemble all parts in one header line.
-	msg := strings.Join([]string{retcode, message}, "\t")
-	suffixes := strings.Join([]string{suffix, rmSuffix}, "\t")
-
-	return strings.Join([]string{msg, suffixes}, "\t")
-}
-
-func hasAliasedCompletions(vals []common.RawValue) bool {
-	allKeys := make(map[string]bool)
-	for _, item := range vals {
-		if _, value := allKeys[item.Description]; value {
-			return true
-		}
-
-		allKeys[item.Description] = true
-	}
-
-	return false
-}
-
-// getPadding computes the required padding (global or per group) with safeguards.
-func getPadding(valueLen, maxLenGroup, maxLenAll int) (padding string) {
-	var paddingLen int
-
-	if maxLenAll != 0 {
-		paddingLen = maxLenAll - valueLen + 1
-	} else {
-		paddingLen = maxLenGroup - valueLen + 1
-	}
-	if paddingLen < 0 {
-		paddingLen = 0
-	}
-
-	return strings.Repeat(" ", paddingLen)
-}
-
-// getMaxLength returns the length of the longest completion value.
-func getMaxLength(vals []common.RawValue) int {
-	maxLength := 0
-
-	for _, raw := range vals {
-		length := len(raw.Display)
-		if length > maxLength {
-			maxLength = length
-		}
-	}
-
-	return maxLength
+	return retcode, message
 }

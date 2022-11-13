@@ -212,7 +212,7 @@ func needsArgument(targetCmd *cobra.Command, previous string) (yes bool, flag *p
 	// 	return
 	// }
 	if len(strings.Split(previous, "=")) >= 2 {
-		yes = true
+		return false, nil
 	}
 
 	if !targetCmd.DisableFlagParsing && flag.NoOptDefVal == "" && !common.IsDash(targetCmd) {

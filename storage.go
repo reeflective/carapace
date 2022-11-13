@@ -94,7 +94,7 @@ func getRepeatableFlag(flag *pflag.Flag, action Action) Action {
 		}
 
 		// Finally remove the parts found in the current string.
-		return action.Invoke(c).Filter(alreadySet).Filter(c.Parts).ToA()
+		return action.Invoke(c).Filter(alreadySet).Filter(c.Parts).ToA().noSpace(false)
 	})
 
 	return listAction
