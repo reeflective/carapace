@@ -207,25 +207,30 @@ func setDefaultValueStyle() (valueStyle, descriptionStyle string) {
 
 // builds the first part of the header line, checking either errors or hints.
 func formatMessage() (retcode, message string) {
-	// Format the completion message if needed
 	if common.CompletionMessage != "" {
+		// Format the completion message if needed
 		retcode = "1" // TODO VERY VERY UGLY
+
+		msg := messageSanitizer.Replace(common.CompletionMessage)
+		msg = quoter.Replace(msg)
 
 		message = fmt.Sprintf("\x1b[%vm%v\x1b[%vm %v\x1b[%vm",
 			style.SGR(style.Carapace.Error),
 			"ERR",
 			style.SGR(style.Dim),
-			common.CompletionMessage,
+			msg,
 			style.SGR("fg-default"))
-	}
 
-	// Format the completion message if needed
-	if common.CompletionHint != "" {
+	} else if common.CompletionHint != "" {
+		// Format the completion message if needed
+		msg := messageSanitizer.Replace(common.CompletionHint)
+		msg = quoter.Replace(msg)
+
 		message = fmt.Sprintf("\x1b[%vm%v\x1b[%vm %v\x1b[%vm",
 			style.SGR(style.Dim),
 			"",
 			style.SGR(style.Dim),
-			common.CompletionHint,
+			msg,
 			style.SGR("fg-default"))
 	}
 
