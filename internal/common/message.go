@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rsteube/carapace/pkg/style"
+	"github.com/carapace-sh/carapace/pkg/style"
 )
 
 type Messages struct {
@@ -96,7 +96,7 @@ func (m Messages) Integrate(values RawValues, prefix string) RawValues {
 		for {
 			if i > 0 {
 				value = fmt.Sprintf("%vERR%v", prefix, i)
-				value = fmt.Sprintf("ERR%v", i)
+				display = fmt.Sprintf("ERR%v", i)
 			}
 			i += 1
 

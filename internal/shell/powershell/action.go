@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rsteube/carapace/internal/common"
-	"github.com/rsteube/carapace/pkg/style"
-	"github.com/rsteube/carapace/third_party/github.com/elves/elvish/pkg/ui"
+	"github.com/carapace-sh/carapace/internal/common"
+	"github.com/carapace-sh/carapace/internal/env"
+	"github.com/carapace-sh/carapace/pkg/style"
+	"github.com/carapace-sh/carapace/third_party/github.com/elves/elvish/pkg/ui"
 )
 
 var sanitizer = strings.NewReplacer( // TODO
@@ -41,21 +42,30 @@ func ActionRawValues(currentWord string, meta common.Meta, values common.RawValu
 		descriptionStyle = s
 	}
 
+	tooltipEnabled := env.Tooltip()
+
 	vals := make([]completionResult, 0, len(values))
 	for _, val := range values {
 		if val.Value != "" { // must not be empty - any empty `''` parameter in CompletionResult causes an error
 			val.Value = sanitizer.Replace(val.Value)
+			nospace := meta.Nospace.Matches(val.Value)
 
 			if strings.ContainsAny(val.Value, ` {}()[]*$?\"|<>&(),;#`+"`") {
 				val.Value = fmt.Sprintf("'%v'", val.Value)
 			}
 
-			if !meta.Nospace.Matches(val.Value) {
+			if !nospace {
 				val.Value = val.Value + " "
 			}
 
 			if val.Style == "" || ui.ParseStyling(val.Style) == nil {
 				val.Style = valueStyle
+			}
+
+			tooltip := " "
+			if tooltipEnabled && val.Description != "" {
+				tooltip = fmt.Sprintf("`e[%vm`e[%vm%v`e[21;22;23;24;25;29;39;49m", sgr(descriptionStyle+" bg-default"), sgr(descriptionStyle), sanitizer.Replace(val.TrimmedDescription()))
+				val.Description = ""
 			}
 
 			listItemText := fmt.Sprintf("`e[21;22;23;24;25;29m`e[%vm%v`e[21;22;23;24;25;29;39;49m", sgr(val.Style), sanitizer.Replace(val.Display))
@@ -67,7 +77,7 @@ func ActionRawValues(currentWord string, meta common.Meta, values common.RawValu
 			vals = append(vals, completionResult{
 				CompletionText: val.Value,
 				ListItemText:   ensureNotEmpty(listItemText),
-				ToolTip:        ensureNotEmpty(" "),
+				ToolTip:        ensureNotEmpty(tooltip),
 			})
 		}
 	}

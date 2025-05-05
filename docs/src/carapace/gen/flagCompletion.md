@@ -1,11 +1,10 @@
 # FlagCompletion
 
-[`FlagCompletion`] defines completion for flags using a map consisting of name and [action](../action.md).
+[`FlagCompletion`] defines completion for flags.
 
 ```go
 carapace.Gen(myCmd).FlagCompletion(carapace.ActionMap{
     "flagName": carapace.ActionValues("a", "b", "c"),
-    // ...
 })
 ```
 
@@ -17,5 +16,5 @@ To mark a flag argument as optional (`--name=value`) the [`NoOptDefVal`] needs t
 rootCmd.Flag("optarg").NoOptDefVal = " "
 ```
 
-[`FlagCompletion`]:https://pkg.go.dev/github.com/rsteube/carapace#Carapace.FlagCompletion
+[`FlagCompletion`]:https://pkg.go.dev/github.com/carapace-sh/carapace#Carapace.FlagCompletion
 [`NoOptDefVal`]:https://pkg.go.dev/github.com/spf13/pflag#Flag

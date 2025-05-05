@@ -5,20 +5,22 @@
 ```go
 carapace.ActionImport([]byte(`
 {
-  "Version": "unknown",
-  "Nospace": "",
-  "RawValues": [
+  "version": "unknown",
+  "messages": [],
+  "nospace": "",
+  "usage": "",
+  "values": [
     {
-      "Value": "first",
-      "Display": "first"
+      "value": "first",
+      "display": "first"
     },
     {
-      "Value": "second",
-      "Display": "second"
+      "value": "second",
+      "display": "second"
     },
     {
-      "Value": "third",
-      "Display": "third"
+      "value": "third",
+      "display": "third"
     }
   ]
 }
@@ -28,5 +30,5 @@ carapace.ActionImport([]byte(`
 ![](./actionImport.cast)
 
 [Action]:../action.md
-[`ActionImport`]:https://pkg.go.dev/github.com/rsteube/carapace#ActionImport
+[`ActionImport`]:https://pkg.go.dev/github.com/carapace-sh/carapace#ActionImport
 [Export]:../export.md

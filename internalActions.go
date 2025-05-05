@@ -1,34 +1,40 @@
 package carapace
 
 import (
-	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
-	"github.com/rsteube/carapace/internal/common"
-	"github.com/rsteube/carapace/internal/pflagfork"
-	"github.com/rsteube/carapace/pkg/style"
+	"github.com/carapace-sh/carapace/internal/env"
+	"github.com/carapace-sh/carapace/internal/pflagfork"
+	"github.com/carapace-sh/carapace/pkg/style"
+	"github.com/carapace-sh/carapace/pkg/uid"
+	"github.com/carapace-sh/carapace/pkg/util"
 	"github.com/spf13/cobra"
 )
 
 func actionPath(fileSuffixes []string, dirOnly bool) Action {
 	return ActionCallback(func(c Context) Action {
-		abs, err := c.Abs(c.CallbackValue)
+		if len(c.Value) == 2 && util.HasVolumePrefix(c.Value) {
+			// TODO should be fixed in Abs or wherever this is happening
+			return ActionValues(c.Value + "/") // prevent `C:` -> `C:.`
+		}
+
+		abs, err := c.Abs(c.Value)
 		if err != nil {
 			return ActionMessage(err.Error())
 		}
 
-		displayFolder := filepath.Dir(c.CallbackValue)
+		displayFolder := filepath.ToSlash(filepath.Dir(c.Value))
 		if displayFolder == "." {
 			displayFolder = ""
 		} else if !strings.HasSuffix(displayFolder, "/") {
 			displayFolder = displayFolder + "/"
 		}
 
-		actualFolder := filepath.Dir(abs)
-		files, err := ioutil.ReadDir(actualFolder)
+		actualFolder := filepath.ToSlash(filepath.Dir(abs))
+		files, err := os.ReadDir(actualFolder)
 		if err != nil {
 			return ActionMessage(err.Error())
 		}
@@ -41,16 +47,23 @@ func actionPath(fileSuffixes []string, dirOnly bool) Action {
 				continue
 			}
 
-			resolvedFile := file
-			if resolved, err := filepath.EvalSymlinks(actualFolder + file.Name()); err == nil {
-				if stat, err := os.Stat(resolved); err == nil {
-					resolvedFile = stat
+			info, err := file.Info()
+			if err != nil {
+				return ActionMessage(err.Error())
+			}
+			symlinkedDir := false
+			if evaluatedPath, err := filepath.EvalSymlinks(actualFolder + "/" + file.Name()); err == nil {
+				if evaluatedInfo, err := os.Stat(evaluatedPath); err == nil {
+					symlinkedDir = evaluatedInfo.IsDir()
 				}
 			}
 
-			if resolvedFile.IsDir() {
+			switch {
+			case info.IsDir():
 				vals = append(vals, displayFolder+file.Name()+"/", style.ForPath(filepath.Clean(actualFolder+"/"+file.Name()+"/"), c))
-			} else if !dirOnly {
+			case symlinkedDir:
+				vals = append(vals, displayFolder+file.Name()+"/", style.ForPath(filepath.Clean(actualFolder+"/"+file.Name()), c)) // TODO colorist not returning the symlink color
+			case !dirOnly:
 				if len(fileSuffixes) == 0 {
 					fileSuffixes = []string{""}
 				}
@@ -62,7 +75,7 @@ func actionPath(fileSuffixes []string, dirOnly bool) Action {
 				}
 			}
 		}
-		if strings.HasPrefix(c.CallbackValue, "./") {
+		if strings.HasPrefix(c.Value, "./") {
 			return ActionStyledValues(vals...).Invoke(Context{}).Prefix("./").ToA()
 		}
 		return ActionStyledValues(vals...)
@@ -71,71 +84,79 @@ func actionPath(fileSuffixes []string, dirOnly bool) Action {
 
 func actionFlags(cmd *cobra.Command) Action {
 	return ActionCallback(func(c Context) Action {
+		cmd.InitDefaultHelpFlag()
+		cmd.InitDefaultVersionFlag()
+
 		flagSet := pflagfork.FlagSet{FlagSet: cmd.Flags()}
-		re := regexp.MustCompile("^-(?P<shorthand>[^-=]+)")
-		isShorthandSeries := re.MatchString(c.CallbackValue) && flagSet.IsPosix()
+		isShorthandSeries := flagSet.IsShorthandSeries(c.Value)
 
-		vals := make([]string, 0)
+		nospace := make([]rune, 0)
+		batch := Batch()
 		flagSet.VisitAll(func(f *pflagfork.Flag) {
-			if f.Deprecated != "" {
+			switch {
+			case f.Hidden && !env.Hidden():
+				return // skip hidden flags
+			case f.Deprecated != "":
 				return // skip deprecated flags
-			}
-
-			if f.Changed && !f.IsRepeatable() {
+			case f.Changed && !f.IsRepeatable():
 				return // don't repeat flag
-			}
-
-			if flagSet.IsMutuallyExclusive(f.Flag) {
+			case flagSet.IsMutuallyExclusive(f.Flag):
 				return // skip flag of group already set
 			}
 
 			if isShorthandSeries {
 				if f.Shorthand != "" && f.ShorthandDeprecated == "" {
-					for _, shorthand := range c.CallbackValue[1:] {
+					for _, shorthand := range c.Value[1:] {
 						if shorthandFlag := cmd.Flags().ShorthandLookup(string(shorthand)); shorthandFlag != nil && shorthandFlag.Value.Type() != "bool" && shorthandFlag.Value.Type() != "count" && shorthandFlag.NoOptDefVal == "" {
 							return // abort shorthand flag series if a previous one is not bool or count and requires an argument (no default value)
 						}
 					}
-					vals = append(vals, f.Shorthand, f.Usage)
-				}
-			} else {
-				if flagstyle := f.Style(); flagstyle != pflagfork.ShorthandOnly {
-					if flagstyle == pflagfork.NameAsShorthand {
-						vals = append(vals, "-"+f.Name, f.Usage)
-					} else {
-						vals = append(vals, "--"+f.Name, f.Usage)
+					batch = append(batch, ActionStyledValuesDescribed(f.Shorthand, f.Usage, f.Style()).Tag("shorthand flags").
+						UidF(func(s string, uc uid.Context) (*url.URL, error) { return uid.Flag(cmd, f), nil }))
+					if f.IsOptarg() {
+						nospace = append(nospace, []rune(f.Shorthand)[0])
 					}
 				}
+			} else {
+				switch f.Mode() {
+				case pflagfork.NameAsShorthand:
+					batch = append(batch, ActionStyledValuesDescribed("-"+f.Name, f.Usage, f.Style()).Tag("longhand flags").
+						UidF(func(s string, uc uid.Context) (*url.URL, error) { return uid.Flag(cmd, f), nil }))
+				case pflagfork.Default:
+					batch = append(batch, ActionStyledValuesDescribed("--"+f.Name, f.Usage, f.Style()).Tag("longhand flags").
+						UidF(func(s string, uc uid.Context) (*url.URL, error) { return uid.Flag(cmd, f), nil }))
+				}
+
 				if f.Shorthand != "" && f.ShorthandDeprecated == "" {
-					vals = append(vals, "-"+f.Shorthand, f.Usage)
+					batch = append(batch, ActionStyledValuesDescribed("-"+f.Shorthand, f.Usage, f.Style()).Tag("shorthand flags").
+						UidF(func(s string, uc uid.Context) (*url.URL, error) { return uid.Flag(cmd, f), nil }))
 				}
 			}
 		})
 
 		if isShorthandSeries {
-			return ActionValuesDescribed(vals...).Invoke(c).Prefix(c.CallbackValue).ToA().NoSpace('*')
-		}
-		for i := 0; i < len(vals); i = i + 2 { // TODO experimental - hardcoded multiparts completion if flags are "grouped" with `.`
-			if strings.Contains(vals[i], ".") {
-				return ActionValuesDescribed(vals...).Invoke(c).ToMultiPartsA(".")
+			if len(nospace) > 0 {
+				return batch.ToA().Prefix(c.Value).NoSpace(nospace...)
 			}
+			return batch.ToA().Prefix(c.Value)
 		}
-		return ActionValuesDescribed(vals...)
-	}).Tag("flags")
+		return batch.ToA().MultiParts(".") // multiparts completion for flags grouped with `.`
+	})
 }
 
-func actionSubcommands(cmd *cobra.Command) Action {
-	return ActionCallback(func(c Context) Action {
-		batch := Batch()
-		for _, subcommand := range cmd.Commands() {
-			if !subcommand.Hidden && subcommand.Deprecated == "" {
-				group := common.Group{Cmd: subcommand}
-				batch = append(batch, ActionStyledValuesDescribed(subcommand.Name(), subcommand.Short, group.Style()).Tag(group.Tag()))
-				for _, alias := range subcommand.Aliases {
-					batch = append(batch, ActionStyledValuesDescribed(alias, subcommand.Short, group.Style()).Tag(group.Tag()))
-				}
-			}
-		}
-		return batch.ToA()
-	})
+func initHelpCompletion(cmd *cobra.Command) {
+	helpCmd, _, err := cmd.Find([]string{"help"})
+	if err != nil {
+		return
+	}
+
+	if helpCmd.Name() != "help" ||
+		helpCmd.Short != "Help about any command" ||
+		!strings.HasPrefix(helpCmd.Long, `Help provides help for any command in the application.`) {
+		return
+	}
+
+	Gen(helpCmd).PositionalAnyCompletion(
+		ActionCommands(cmd),
+	)
 }

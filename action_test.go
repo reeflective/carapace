@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rsteube/carapace/internal/assert"
-	"github.com/rsteube/carapace/internal/common"
-	"github.com/rsteube/carapace/pkg/style"
+	"github.com/carapace-sh/carapace/internal/assert"
+	"github.com/carapace-sh/carapace/internal/common"
+	"github.com/carapace-sh/carapace/pkg/style"
+	"github.com/carapace-sh/carapace/pkg/uid"
 )
 
 func init() {
@@ -18,24 +19,24 @@ func init() {
 }
 
 func assertEqual(t *testing.T, expected, actual InvokedAction) {
-	sort.Sort(common.ByValue(expected.rawValues))
-	sort.Sort(common.ByValue(actual.rawValues))
+	sort.Sort(common.ByValue(expected.action.rawValues))
+	sort.Sort(common.ByValue(actual.action.rawValues))
 
-	e, _ := json.MarshalIndent(expected.rawValues, "", "  ")
-	a, _ := json.MarshalIndent(actual.rawValues, "", "  ")
+	e, _ := json.MarshalIndent(expected.action.rawValues, "", "  ")
+	a, _ := json.MarshalIndent(actual.action.rawValues, "", "  ")
 	assert.Equal(t, string(e), string(a))
 
-	eMeta, _ := json.MarshalIndent(expected.meta, "", "  ")
-	aMeta, _ := json.MarshalIndent(actual.meta, "", "  ")
+	eMeta, _ := json.MarshalIndent(expected.action.meta, "", "  ")
+	aMeta, _ := json.MarshalIndent(actual.action.meta, "", "  ")
 	assert.Equal(t, string(eMeta), string(aMeta))
 }
 
 func assertNotEqual(t *testing.T, expected, actual InvokedAction) {
-	sort.Sort(common.ByValue(expected.rawValues))
-	sort.Sort(common.ByValue(actual.rawValues))
+	sort.Sort(common.ByValue(expected.action.rawValues))
+	sort.Sort(common.ByValue(actual.action.rawValues))
 
-	e, _ := json.MarshalIndent(expected.rawValues, "", "  ")
-	a, _ := json.MarshalIndent(actual.rawValues, "", "  ")
+	e, _ := json.MarshalIndent(expected.action.rawValues, "", "  ")
+	a, _ := json.MarshalIndent(actual.action.rawValues, "", "  ")
 
 	if string(e) == string(a) {
 		t.Errorf("should differ:\n%v", a)
@@ -81,7 +82,7 @@ func TestSkipCache(t *testing.T) {
 			ActionCallback(func(c Context) Action {
 				return ActionMessage("skipcache")
 			}).Invoke(c)).
-			Filter([]string{""}).
+			Filter("").
 			Prefix("").
 			Suffix("").
 			ToA()
@@ -89,7 +90,7 @@ func TestSkipCache(t *testing.T) {
 	if !a.meta.Messages.IsEmpty() {
 		t.Fatal("uninvoked action should not contain messages")
 	}
-	if a.Invoke(Context{}).meta.Messages.IsEmpty() {
+	if a.Invoke(Context{}).action.meta.Messages.IsEmpty() {
 		t.Fatal("invoked action should contain messages")
 	}
 }
@@ -100,7 +101,7 @@ func TestNoSpace(t *testing.T) {
 			ActionMultiParts("", func(c Context) Action {
 				return ActionMessage("nospace")
 			}).Invoke(c)).
-			Filter([]string{""}).
+			Filter("").
 			Prefix("").
 			Suffix("").
 			ToA()
@@ -108,7 +109,7 @@ func TestNoSpace(t *testing.T) {
 	if a.meta.Nospace.Matches("x") {
 		t.Fatal("uninvoked nospace should not match")
 	}
-	if !a.Invoke(Context{}).meta.Nospace.Matches("x") {
+	if !a.Invoke(Context{}).action.meta.Nospace.Matches("x") {
 		t.Fatal("invoked nospace should match")
 	}
 }
@@ -116,64 +117,96 @@ func TestNoSpace(t *testing.T) {
 func TestActionDirectories(t *testing.T) {
 	assertEqual(t,
 		ActionStyledValues(
-			"example/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-			"docs/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-			"internal/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-			"pkg/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-			"third_party/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-		).NoSpace('/').Tag("directories").Invoke(Context{}),
-		ActionDirectories().Invoke(Context{CallbackValue: ""}).Filter([]string{"vendor/"}),
+			"example/", style.Of(style.Blue, style.Bold),
+			"example-nonposix/", style.Of(style.Blue, style.Bold),
+			"docs/", style.Of(style.Blue, style.Bold),
+			"internal/", style.Of(style.Blue, style.Bold),
+			"pkg/", style.Of(style.Blue, style.Bold),
+			"third_party/", style.Of(style.Blue, style.Bold),
+		).NoSpace('/').Tag("directories").Invoke(Context{}).UidF(uid.Map(
+			"example/", "file://"+wd("")+"/example/",
+			"example-nonposix/", "file://"+wd("")+"/example-nonposix/",
+			"docs/", "file://"+wd("")+"/docs/",
+			"internal/", "file://"+wd("")+"/internal/",
+			"pkg/", "file://"+wd("")+"/pkg/",
+			"third_party/", "file://"+wd("")+"/third_party/",
+		)),
+		ActionDirectories().Invoke(Context{Value: ""}).Filter("vendor/"),
 	)
 
 	assertEqual(t,
 		ActionStyledValues(
-			"example/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-			"docs/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-			"internal/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-			"pkg/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-			"third_party/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-		).NoSpace('/').Tag("directories").Invoke(Context{}).Prefix("./"),
-		ActionDirectories().Invoke(Context{CallbackValue: "./"}).Filter([]string{"./vendor/"}),
+			"example/", style.Of(style.Blue, style.Bold),
+			"example-nonposix/", style.Of(style.Blue, style.Bold),
+			"docs/", style.Of(style.Blue, style.Bold),
+			"internal/", style.Of(style.Blue, style.Bold),
+			"pkg/", style.Of(style.Blue, style.Bold),
+			"third_party/", style.Of(style.Blue, style.Bold),
+		).NoSpace('/').Tag("directories").Invoke(Context{}).Prefix("./").UidF(uid.Map(
+			"./example/", "file://"+wd("")+"/example/",
+			"./example-nonposix/", "file://"+wd("")+"/example-nonposix/",
+			"./docs/", "file://"+wd("")+"/docs/",
+			"./internal/", "file://"+wd("")+"/internal/",
+			"./pkg/", "file://"+wd("")+"/pkg/",
+			"./third_party/", "file://"+wd("")+"/third_party/",
+		)),
+		ActionDirectories().Invoke(Context{Value: "./"}).Filter("./vendor/"),
 	)
 
 	assertEqual(t,
 		ActionStyledValues(
-			"_test/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-			"cmd/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-		).NoSpace('/').Tag("directories").Invoke(Context{}).Prefix("example/"),
-		ActionDirectories().Invoke(Context{CallbackValue: "example/"}),
+			"cmd/", style.Of(style.Blue, style.Bold),
+		).NoSpace('/').Tag("directories").Invoke(Context{}).Prefix("example/").UidF(uid.Map(
+			"example/cmd/", "file://"+wd("")+"/example/cmd/",
+		)),
+		ActionDirectories().Invoke(Context{Value: "example/"}),
 	)
 
 	assertEqual(t,
 		ActionStyledValues(
-			"cmd/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-		).NoSpace('/').Tag("directories").Invoke(Context{}).Prefix("example/"),
-		ActionDirectories().Invoke(Context{CallbackValue: "example/cm"}),
+			"cmd/", style.Of(style.Blue, style.Bold),
+		).NoSpace('/').Tag("directories").Invoke(Context{}).Prefix("example/").UidF(uid.Map(
+			"example/cmd/", "file://"+wd("")+"/example/cmd/",
+		)),
+		ActionDirectories().Invoke(Context{Value: "example/cm"}),
 	)
 }
 
 func TestActionFiles(t *testing.T) {
 	assertEqual(t,
 		ActionStyledValues(
-			"README.md", style.Of("fg-default", "bg-default"),
-			"example/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-			"docs/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-			"internal/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-			"pkg/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-			"third_party/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-		).NoSpace('/').Tag("files").Invoke(Context{}),
-		ActionFiles(".md").Invoke(Context{CallbackValue: ""}).Filter([]string{"vendor/"}),
+			"README.md", style.Default,
+			"example/", style.Of(style.Blue, style.Bold),
+			"example-nonposix/", style.Of(style.Blue, style.Bold),
+			"docs/", style.Of(style.Blue, style.Bold),
+			"internal/", style.Of(style.Blue, style.Bold),
+			"pkg/", style.Of(style.Blue, style.Bold),
+			"third_party/", style.Of(style.Blue, style.Bold),
+		).NoSpace('/').Tag("files").Invoke(Context{}).UidF(uid.Map(
+			"README.md", "file://"+wd("")+"/README.md",
+			"example/", "file://"+wd("")+"/example/",
+			"example-nonposix/", "file://"+wd("")+"/example-nonposix/",
+			"docs/", "file://"+wd("")+"/docs/",
+			"internal/", "file://"+wd("")+"/internal/",
+			"pkg/", "file://"+wd("")+"/pkg/",
+			"third_party/", "file://"+wd("")+"/third_party/",
+		)),
+		ActionFiles(".md").Invoke(Context{Value: ""}).Filter("vendor/"),
 	)
 
 	assertEqual(t,
 		ActionStyledValues(
-			"README.md", style.Of("fg-default", "bg-default"),
-			"_test/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-			"cmd/", style.Of("fg-default", "bg-default", style.Blue, style.Bold),
-			"main.go", style.Of("fg-default", "bg-default"),
-			"main_test.go", style.Of("fg-default", "bg-default"),
-		).NoSpace('/').Tag("files").Invoke(Context{}).Prefix("example/"),
-		ActionFiles().Invoke(Context{CallbackValue: "example/"}).Filter([]string{"example/example"}),
+			"README.md", style.Default,
+			"cmd/", style.Of(style.Blue, style.Bold),
+			"main.go", style.Default,
+			"main_test.go", style.Default,
+		).NoSpace('/').Tag("files").Invoke(Context{}).Prefix("example/").UidF(uid.Map(
+			"example/README.md", "file://"+wd("example")+"/README.md",
+			"example/cmd/", "file://"+wd("example")+"/cmd/",
+			"example/main.go", "file://"+wd("example")+"/main.go",
+			"example/main_test.go", "file://"+wd("example")+"/main_test.go",
+		)),
+		ActionFiles().Invoke(Context{Value: "example/"}).Filter("example/example"),
 	)
 }
 
@@ -181,21 +214,24 @@ func TestActionFilesChdir(t *testing.T) {
 	oldWd, _ := os.Getwd()
 
 	assertEqual(t,
-		ActionMessage(fmt.Sprintf("stat %v: no such file or directory", wd("nonexistent"))).NoSpace('/').Invoke(Context{}),
+		ActionMessage(fmt.Sprintf("stat %v: no such file or directory", wd("nonexistent"))).Invoke(Context{}),
 		ActionFiles(".md").Chdir("nonexistent").Invoke(Context{}),
 	)
 
 	assertEqual(t,
 		ActionMessage(fmt.Sprintf("not a directory: %v/go.mod", wd(""))).Invoke(Context{}),
-		ActionFiles(".md").Chdir("go.mod").Invoke(Context{CallbackValue: ""}),
+		ActionFiles(".md").Chdir("go.mod").Invoke(Context{Value: ""}),
 	)
 
 	assertEqual(t,
 		ActionStyledValues(
-			"action.go", style.Of("fg-default", "bg-default"),
-			"snippet.go", style.Of("fg-default", "bg-default"),
-		).NoSpace('/').Tag("files").Invoke(Context{}).Prefix("elvish/"),
-		ActionFiles().Chdir("internal/shell").Invoke(Context{CallbackValue: "elvish/"}),
+			"action.go", style.Default,
+			"snippet.go", style.Default,
+		).NoSpace('/').Tag("files").Invoke(Context{}).Prefix("elvish/").UidF(uid.Map(
+			"elvish/action.go", "file://"+wd("internal/shell")+"/elvish/action.go",
+			"elvish/snippet.go", "file://"+wd("internal/shell")+"/elvish/snippet.go",
+		)),
+		ActionFiles().Chdir("internal/shell").Invoke(Context{Value: "elvish/"}),
 	)
 
 	if newWd, _ := os.Getwd(); oldWd != newWd {
@@ -204,12 +240,12 @@ func TestActionFilesChdir(t *testing.T) {
 }
 
 func TestActionMessage(t *testing.T) {
-	expected := ActionValues().NoSpace()
+	expected := ActionValues()
 	expected.meta.Messages.Add("example message")
 
 	assertEqual(t,
 		expected.Invoke(Context{}),
-		ActionMessage("example message").Invoke(Context{CallbackValue: "docs/"}),
+		ActionMessage("example message").Invoke(Context{Value: "docs/"}),
 	)
 }
 
@@ -219,18 +255,20 @@ func TestActionMessageSuppress(t *testing.T) {
 			ActionMessage("example message").Suppress("example"),
 			ActionValues("test"),
 		).ToA().Invoke(Context{}),
-		ActionValues("test").NoSpace('*').Invoke(Context{}), // TODO suppress does not reset nospace (is that even possible?)
+		ActionValues("test").Invoke(Context{}), // TODO suppress does not reset nospace (is that even possible?)
 	)
 }
 
 func TestActionExecCommand(t *testing.T) {
+	context := NewContext()
+	context.Value = "docs/"
 	assertEqual(t,
-		ActionMessage("go unknown: unknown command").NoSpace('/').Invoke(Context{}).Prefix("docs/"),
-		ActionExecCommand("go", "unknown")(func(output []byte) Action { return ActionValues() }).Invoke(Context{CallbackValue: "docs/"}),
+		ActionMessage("go unknown: unknown command").Invoke(NewContext()).Prefix("docs/"),
+		ActionExecCommand("go", "unknown")(func(output []byte) Action { return ActionValues() }).Invoke(context),
 	)
 
 	assertEqual(t,
-		ActionValues("module github.com/rsteube/carapace\n").Invoke(Context{}),
+		ActionValues("module github.com/carapace-sh/carapace\n").Invoke(Context{}),
 		ActionExecCommand("head", "-n1", "go.mod")(func(output []byte) Action { return ActionValues(string(output)) }).Invoke(Context{}),
 	)
 }

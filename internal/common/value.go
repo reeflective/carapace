@@ -5,7 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rsteube/carapace/pkg/style"
+	"github.com/carapace-sh/carapace/pkg/match"
+	"github.com/carapace-sh/carapace/pkg/style"
 )
 
 // FromInvokedAction provides access to RawValues within an InvokedAction.
@@ -14,11 +15,12 @@ var FromInvokedAction func(action interface{}) (Meta, RawValues)
 
 // RawValue represents a completion candidate.
 type RawValue struct {
-	Value       string
-	Display     string
-	Description string `json:",omitempty"`
-	Style       string `json:",omitempty"`
-	Tag         string `json:",omitempty"`
+	Value       string `json:"value"`
+	Display     string `json:"display"`
+	Description string `json:"description,omitempty"`
+	Style       string `json:"style,omitempty"`
+	Tag         string `json:"tag,omitempty"`
+	Uid         string `json:"uid,omitempty"`
 }
 
 // TrimmedDescription returns the trimmed description.
@@ -82,11 +84,36 @@ func (r RawValues) Filter(values ...string) RawValues {
 	return filtered
 }
 
+// Retain retains given values.
+func (r RawValues) Retain(values ...string) RawValues {
+	toretain := make(map[string]bool)
+	for _, v := range values {
+		toretain[v] = true
+	}
+	filtered := make([]RawValue, 0)
+	for _, rawValue := range r {
+		if _, ok := toretain[rawValue.Value]; ok {
+			filtered = append(filtered, rawValue)
+		}
+	}
+	return filtered
+}
+
+// Decolor clears style for all values.
+func (r RawValues) Decolor() RawValues {
+	rawValues := make(RawValues, len(r))
+	for index, value := range r {
+		value.Style = ""
+		rawValues[index] = value
+	}
+	return rawValues
+}
+
 // FilterPrefix filters values with given prefix.
 func (r RawValues) FilterPrefix(prefix string) RawValues {
 	filtered := make(RawValues, 0)
 	for _, r := range r {
-		if strings.HasPrefix(r.Value, prefix) {
+		if match.HasPrefix(r.Value, prefix) {
 			filtered = append(filtered, r)
 		}
 	}

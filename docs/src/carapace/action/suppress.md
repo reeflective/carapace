@@ -4,11 +4,11 @@
 
 ```go
 carapace.Batch(
-	docker.ActionContainers(),
-	docker.ActionServices().Supress("This node is not a swarm manager"),
-	docker.ActionNetworks(),
-	docker.ActionVolumes(),
-).ToA()
+	carapace.ActionMessage("unexpected error"),
+	carapace.ActionMessage("ignored error"),
+).ToA().Suppress("ignored")
 ```
 
-[`Suppress`]: https://pkg.go.dev/github.com/rsteube/carapace#Action.Suppress
+![](./suppress.cast)
+
+[`Suppress`]: https://pkg.go.dev/github.com/carapace-sh/carapace#Action.Suppress

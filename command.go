@@ -6,13 +6,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/rsteube/carapace/internal/uid"
-	"github.com/rsteube/carapace/pkg/style"
+	"github.com/carapace-sh/carapace/internal/spec"
+	"github.com/carapace-sh/carapace/pkg/style"
 	"github.com/spf13/cobra"
 )
 
-func addCompletionCommand(cmd *cobra.Command) {
-	for _, c := range cmd.Commands() {
+func addCompletionCommand(targetCmd *cobra.Command) {
+	for _, c := range targetCmd.Commands() {
 		if c.Name() == "_carapace" {
 			return
 		}
@@ -21,17 +21,28 @@ func addCompletionCommand(cmd *cobra.Command) {
 	carapaceCmd := &cobra.Command{
 		Use:    "_carapace",
 		Hidden: true,
-		PreRun: func(cmd *cobra.Command, args []string) {
+		Run: func(cmd *cobra.Command, args []string) {
+			LOG.Print(strings.Repeat("-", 80))
+			LOG.Printf("%#v", os.Args)
+
 			if len(args) > 2 && strings.HasPrefix(args[2], "_") {
 				cmd.Hidden = false
 			}
-		},
-		Run: func(cmd *cobra.Command, args []string) {
-			logger.PrintArgs(os.Args)
-			if s, err := complete(cmd, args); err != nil {
-				fmt.Fprintln(io.MultiWriter(cmd.OutOrStderr(), logger.Writer()), err.Error())
+
+			if !cmd.HasParent() {
+				panic("missing parent command") // this should never happen
+			}
+
+			parentCmd := cmd.Parent()
+			if parentCmd.Annotations[annotation_standalone] == "true" {
+				// TODO how to handle an explicit `_carapace` command?
+				parentCmd.RemoveCommand(cmd) // don't complete local `_carapace` in standalone mode
+			}
+
+			if s, err := complete(parentCmd, args); err != nil {
+				fmt.Fprintln(io.MultiWriter(parentCmd.OutOrStderr(), LOG.Writer()), err.Error())
 			} else {
-				fmt.Fprintln(io.MultiWriter(cmd.OutOrStdout(), logger.Writer()), s)
+				fmt.Fprintln(io.MultiWriter(parentCmd.OutOrStdout(), LOG.Writer()), s)
 			}
 		},
 		FParseErrWhitelist: cobra.FParseErrWhitelist{
@@ -40,12 +51,13 @@ func addCompletionCommand(cmd *cobra.Command) {
 		DisableFlagParsing: true,
 	}
 
-	cmd.AddCommand(carapaceCmd)
+	targetCmd.AddCommand(carapaceCmd)
 
 	Carapace{carapaceCmd}.PositionalCompletion(
 		ActionStyledValues(
 			"bash", "#d35673",
 			"bash-ble", "#c2039a",
+			"cmd-clink", "#2B3436",
 			"elvish", "#ffd6c9",
 			"export", style.Default,
 			"fish", "#7ea8fc",
@@ -53,19 +65,23 @@ func addCompletionCommand(cmd *cobra.Command) {
 			"nushell", "#29d866",
 			"oil", "#373a36",
 			"powershell", "#e8a16f",
-			"spec", style.Default,
 			"tcsh", "#412f09",
 			"xonsh", "#a8ffa9",
 			"zsh", "#efda53",
 		),
-		ActionValues(cmd.Root().Name()),
+		ActionValues(targetCmd.Root().Name()),
 	)
 	Carapace{carapaceCmd}.PositionalAnyCompletion(
 		ActionCallback(func(c Context) Action {
 			args := []string{"_carapace", "export", ""}
 			args = append(args, c.Args[2:]...)
-			args = append(args, c.CallbackValue)
-			return ActionExecCommand(uid.Executable(), args...)(func(output []byte) Action {
+			args = append(args, c.Value)
+
+			executable, err := os.Executable()
+			if err != nil {
+				return ActionMessage(err.Error())
+			}
+			return ActionExecCommand(executable, args...)(func(output []byte) Action { // TODO does not work with sandbox tests for `example _carapace ...`
 				if string(output) == "" {
 					return ActionValues()
 				}
@@ -73,6 +89,14 @@ func addCompletionCommand(cmd *cobra.Command) {
 			})
 		}),
 	)
+
+	specCmd := &cobra.Command{
+		Use: "spec",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Fprint(cmd.OutOrStdout(), spec.Spec(targetCmd))
+		},
+	}
+	carapaceCmd.AddCommand(specCmd)
 
 	styleCmd := &cobra.Command{
 		Use:  "style",

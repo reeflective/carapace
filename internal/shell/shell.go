@@ -2,24 +2,27 @@ package shell
 
 import (
 	"fmt"
+	"os/exec"
 	"sort"
 	"strings"
 
-	"github.com/rsteube/carapace/internal/common"
-	"github.com/rsteube/carapace/internal/shell/bash"
-	"github.com/rsteube/carapace/internal/shell/bash_ble"
-	"github.com/rsteube/carapace/internal/shell/elvish"
-	"github.com/rsteube/carapace/internal/shell/export"
-	"github.com/rsteube/carapace/internal/shell/fish"
-	"github.com/rsteube/carapace/internal/shell/ion"
-	"github.com/rsteube/carapace/internal/shell/nushell"
-	"github.com/rsteube/carapace/internal/shell/oil"
-	"github.com/rsteube/carapace/internal/shell/powershell"
-	"github.com/rsteube/carapace/internal/shell/spec"
-	"github.com/rsteube/carapace/internal/shell/tcsh"
-	"github.com/rsteube/carapace/internal/shell/xonsh"
-	"github.com/rsteube/carapace/internal/shell/zsh"
-	"github.com/rsteube/carapace/pkg/ps"
+	"github.com/carapace-sh/carapace/internal/common"
+	"github.com/carapace-sh/carapace/internal/env"
+	"github.com/carapace-sh/carapace/internal/shell/bash"
+	"github.com/carapace-sh/carapace/internal/shell/bash_ble"
+	"github.com/carapace-sh/carapace/internal/shell/cmd_clink"
+	"github.com/carapace-sh/carapace/internal/shell/elvish"
+	"github.com/carapace-sh/carapace/internal/shell/export"
+	"github.com/carapace-sh/carapace/internal/shell/fish"
+	"github.com/carapace-sh/carapace/internal/shell/ion"
+	"github.com/carapace-sh/carapace/internal/shell/nushell"
+	"github.com/carapace-sh/carapace/internal/shell/oil"
+	"github.com/carapace-sh/carapace/internal/shell/powershell"
+	"github.com/carapace-sh/carapace/internal/shell/tcsh"
+	"github.com/carapace-sh/carapace/internal/shell/xonsh"
+	"github.com/carapace-sh/carapace/internal/shell/zsh"
+	"github.com/carapace-sh/carapace/pkg/ps"
+	"github.com/carapace-sh/carapace/pkg/style"
 	"github.com/spf13/cobra"
 )
 
@@ -31,6 +34,7 @@ func Snippet(cmd *cobra.Command, shell string) (string, error) {
 	shellSnippets := map[string]func(cmd *cobra.Command) string{
 		"bash":       bash.Snippet,
 		"bash-ble":   bash_ble.Snippet,
+		"cmd-clink":  cmd_clink.Snippet,
 		"export":     export.Snippet,
 		"fish":       fish.Snippet,
 		"elvish":     elvish.Snippet,
@@ -38,7 +42,6 @@ func Snippet(cmd *cobra.Command, shell string) (string, error) {
 		"nushell":    nushell.Snippet,
 		"oil":        oil.Snippet,
 		"powershell": powershell.Snippet,
-		"spec":       spec.Snippet,
 		"tcsh":       tcsh.Snippet,
 		"xonsh":      xonsh.Snippet,
 		"zsh":        zsh.Snippet,
@@ -55,10 +58,11 @@ func Snippet(cmd *cobra.Command, shell string) (string, error) {
 	return "", fmt.Errorf("expected one of '%v' [was: %v]", strings.Join(expected, "', '"), shell)
 }
 
-func Value(shell string, callbackValue string, meta common.Meta, values common.RawValues) string { // TODO use context instead?
+func Value(shell string, value string, meta common.Meta, values common.RawValues) string { // TODO use context instead?
 	shellFuncs := map[string]func(currentWord string, meta common.Meta, values common.RawValues) string{
 		"bash":       bash.ActionRawValues,
 		"bash-ble":   bash_ble.ActionRawValues,
+		"cmd-clink":  cmd_clink.ActionRawValues,
 		"fish":       fish.ActionRawValues,
 		"elvish":     elvish.ActionRawValues,
 		"export":     export.ActionRawValues,
@@ -71,14 +75,43 @@ func Value(shell string, callbackValue string, meta common.Meta, values common.R
 		"zsh":        zsh.ActionRawValues,
 	}
 	if f, ok := shellFuncs[shell]; ok {
-		filtered := values.FilterPrefix(callbackValue)
+		if env.ColorDisabled() {
+			style.Carapace.Value = style.Default
+			style.Carapace.Description = style.Default
+			style.Carapace.Error = style.Underlined
+			style.Carapace.Usage = style.Italic
+			values = values.Decolor()
+		}
+
+		if !env.Unfiltered() {
+			values = values.FilterPrefix(value)
+		}
+
 		switch shell {
 		case "elvish", "export", "zsh": // shells with support for showing messages
 		default:
-			filtered = meta.Messages.Integrate(filtered, callbackValue)
+			values = meta.Messages.Integrate(values, value)
 		}
-		sort.Sort(common.ByDisplay(filtered))
-		return f(callbackValue, meta, filtered)
+
+		if shell != "export" {
+			switch {
+			case !meta.Messages.IsEmpty():
+				meta.Nospace.Add('*')
+			case env.Nospace() != "":
+				meta.Nospace.Add([]rune(env.Nospace())...)
+			}
+		}
+
+		sort.Sort(common.ByDisplay(values))
+		if env.Experimental() {
+			if _, err := exec.LookPath("tabdance"); err == nil {
+				return f(value, meta, values)
+			}
+		}
+		for index := range values {
+			values[index].Uid = ""
+		}
+		return f(value, meta, values)
 	}
 	return ""
 }

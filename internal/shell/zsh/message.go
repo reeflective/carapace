@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rsteube/carapace/internal/common"
-	"github.com/rsteube/carapace/pkg/style"
+	"github.com/carapace-sh/carapace/internal/common"
+	"github.com/carapace-sh/carapace/pkg/style"
 )
 
 type message struct {
@@ -18,7 +18,7 @@ func (m message) Format() string {
 		formatted = append(formatted, m.formatMessage(message, style.Carapace.Error))
 	}
 	if m.Usage != "" {
-		formatted = append(formatted, m.formatMessage(m.Usage, style.Carapace.Description))
+		formatted = append(formatted, m.formatMessage(m.Usage, style.Carapace.Usage))
 	}
 
 	if len(formatted) > 0 {

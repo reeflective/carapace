@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rsteube/carapace/internal/assert"
-	"github.com/rsteube/carapace/internal/uid"
+	"github.com/carapace-sh/carapace/internal/assert"
+	"github.com/carapace-sh/carapace/pkg/uid"
 	"github.com/spf13/cobra"
 )
 
@@ -51,7 +51,7 @@ func execCompletion(args ...string) (context Context) {
 	rootCmd.AddCommand(subCmd)
 
 	os.Args = append([]string{"root", "_carapace", "elvish", "root"}, args...)
-	rootCmd.Execute()
+	_ = rootCmd.Execute()
 	return
 }
 
@@ -78,83 +78,83 @@ func testContext(t *testing.T, expected Context, args ...string) {
 
 func TestContext(t *testing.T) {
 	testContext(t, Context{
-		CallbackValue: "",
-		Args:          []string{},
-		Parts:         []string{},
-		Env:           []string{},
-		Dir:           wd(""),
+		Value: "",
+		Args:  []string{},
+		Parts: []string{},
+		Env:   []string{},
+		Dir:   wd(""),
 	},
 		"")
 
 	testContext(t, Context{
-		CallbackValue: "",
-		Args:          []string{"pos1"},
-		Parts:         []string{},
-		Env:           []string{},
-		Dir:           wd(""),
+		Value: "",
+		Args:  []string{"pos1"},
+		Parts: []string{},
+		Env:   []string{},
+		Dir:   wd(""),
 	},
 		"pos1", "")
 
 	testContext(t, Context{
-		CallbackValue: "po",
-		Args:          []string{"pos1", "pos2"},
-		Parts:         []string{},
-		Env:           []string{},
-		Dir:           wd(""),
+		Value: "po",
+		Args:  []string{"pos1", "pos2"},
+		Parts: []string{},
+		Env:   []string{},
+		Dir:   wd(""),
 	},
 		"pos1", "pos2", "po")
 
 	testContext(t, Context{
-		CallbackValue: "",
-		Args:          []string{},
-		Parts:         []string{},
-		Env:           []string{},
-		Dir:           wd(""),
+		Value: "",
+		Args:  []string{},
+		Parts: []string{},
+		Env:   []string{},
+		Dir:   wd(""),
 	},
 		"--multiparts", "")
 
 	testContext(t, Context{
-		CallbackValue: "fir",
-		Args:          []string{},
-		Parts:         []string{},
-		Env:           []string{},
-		Dir:           wd(""),
+		Value: "fir",
+		Args:  []string{},
+		Parts: []string{},
+		Env:   []string{},
+		Dir:   wd(""),
 	},
 		"--multiparts", "fir")
 
 	testContext(t, Context{
-		CallbackValue: "seco",
-		Args:          []string{"pos1"},
-		Parts:         []string{"first"},
-		Env:           []string{},
-		Dir:           wd(""),
+		Value: "seco",
+		Args:  []string{"pos1"},
+		Parts: []string{"first"},
+		Env:   []string{},
+		Dir:   wd(""),
 	},
 		"pos1", "--multiparts", "first,seco")
 
 	testContext(t, Context{
-		CallbackValue: "pos",
-		Args:          []string{},
-		Parts:         []string{},
-		Env:           []string{},
-		Dir:           wd(""),
+		Value: "pos",
+		Args:  []string{},
+		Parts: []string{},
+		Env:   []string{},
+		Dir:   wd(""),
 	},
 		"pos")
 
 	testContext(t, Context{
-		CallbackValue: "sec",
-		Args:          []string{},
-		Parts:         []string{"first"},
-		Env:           []string{},
-		Dir:           wd(""),
+		Value: "sec",
+		Args:  []string{},
+		Parts: []string{"first"},
+		Env:   []string{},
+		Dir:   wd(""),
 	},
 		"first:sec")
 
 	testContext(t, Context{
-		CallbackValue: "thi",
-		Args:          []string{"first:second"},
-		Parts:         []string{},
-		Env:           []string{},
-		Dir:           wd(""),
+		Value: "thi",
+		Args:  []string{"first:second"},
+		Parts: []string{},
+		Env:   []string{},
+		Dir:   wd(""),
 	},
 		"first:second", "thi")
 }
@@ -230,7 +230,7 @@ func TestComplete(t *testing.T) {
 	cmd.Flags().BoolP("a", "1", false, "")
 	cmd.Flags().BoolP("b", "2", false, "")
 
-	if s, err := complete(cmd, []string{"elvish", "_", "test", "-1"}); err != nil || s != `{"Usage":"","Messages":[],"DescriptionStyle":"dim white","Candidates":[{"Value":"-12","Display":"2","Description":"","CodeSuffix":"","Style":"default"}]}` {
+	if s, err := complete(cmd, []string{"elvish", "_", "test", "-1"}); err != nil || s != `{"Usage":"","Messages":[],"DescriptionStyle":"dim","Candidates":[{"Value":"-12","Display":"2","Description":"","CodeSuffix":"","Style":"default"},{"Value":"-1h","Display":"h","Description":"help for test","CodeSuffix":"","Style":"default"}]}` {
 		t.Error(s)
 	}
 }
@@ -246,7 +246,7 @@ func TestCompleteOptarg(t *testing.T) {
 		"opt": ActionValuesDescribed("value", "description"),
 	})
 
-	if s, err := complete(cmd, []string{"elvish", "_", "test", "--opt="}); err != nil || s != `{"Usage":"","Messages":[],"DescriptionStyle":"dim white","Candidates":[{"Value":"--opt=value","Display":"value","Description":"description","CodeSuffix":" ","Style":"default"}]}` {
+	if s, err := complete(cmd, []string{"elvish", "_", "test", "--opt="}); err != nil || s != `{"Usage":"","Messages":[],"DescriptionStyle":"dim","Candidates":[{"Value":"--opt=value","Display":"value","Description":"description","CodeSuffix":" ","Style":"default"}]}` {
 		t.Error(s)
 	}
 }
@@ -270,7 +270,7 @@ func TestCompletePositionalWithSpace(t *testing.T) {
 		ActionValues("positional with space"),
 	)
 
-	if s, err := complete(cmd, []string{"elvish", "_", "positional "}); err != nil || s != `{"Usage":"","Messages":[],"DescriptionStyle":"dim white","Candidates":[{"Value":"positional with space","Display":"positional with space","Description":"","CodeSuffix":" ","Style":"default"}]}` {
+	if s, err := complete(cmd, []string{"elvish", "_", "positional "}); err != nil || s != `{"Usage":"","Messages":[],"DescriptionStyle":"dim","Candidates":[{"Value":"positional with space","Display":"positional with space","Description":"","CodeSuffix":" ","Style":"default"}]}` {
 		t.Error(s)
 	}
 }

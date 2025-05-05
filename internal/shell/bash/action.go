@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/rsteube/carapace/internal/common"
+	"github.com/carapace-sh/carapace/internal/common"
 )
 
 var sanitizer = strings.NewReplacer(
@@ -14,8 +14,15 @@ var sanitizer = strings.NewReplacer(
 	"\t", ``,
 )
 
-var quoter = strings.NewReplacer(
-	// seems readline provides quotation only for the filename completion (which would add suffixes) so do that here
+var escapingQuotedReplacer = strings.NewReplacer(
+	`\`, `\\`,
+	`"`, `\"`,
+	`$`, `\$`,
+	"`", "\\`",
+)
+
+var escapingReplacer = strings.NewReplacer(
+	`\`, `\\`,
 	`&`, `\&`,
 	`<`, `\<`,
 	`>`, `\>`,
@@ -35,7 +42,10 @@ var quoter = strings.NewReplacer(
 	`[`, `\[`,
 	`]`, `\]`,
 	`*`, `\*`,
-	`\`, `\\`,
+)
+
+var displayReplacer = strings.NewReplacer(
+	`${`, `\\\${`,
 )
 
 func commonPrefix(a, b string) string {
@@ -70,19 +80,11 @@ func commonValuePrefix(values ...common.RawValue) (prefix string) {
 
 // ActionRawValues formats values for bash.
 func ActionRawValues(currentWord string, meta common.Meta, values common.RawValues) string {
-	lastSegment := currentWord // last segment of currentWord split by COMP_WORDBREAKS
-
-	for valueIndex, value := range values {
-		// TODO optimize
-		if wordbreaks, ok := os.LookupEnv("COMP_WORDBREAKS"); ok {
-			wordbreaks = strings.Replace(wordbreaks, " ", "", -1)
-			if index := strings.LastIndexAny(currentWord, wordbreaks); index != -1 {
-				values[valueIndex].Value = strings.TrimPrefix(value.Value, currentWord[:index+1])
-				lastSegment = currentWord[index+1:]
-			}
-		}
+	for index, value := range values {
+		values[index].Value = strings.TrimPrefix(value.Value, wordbreakPrefix)
 	}
 
+	lastSegment := strings.TrimPrefix(currentWord, wordbreakPrefix) // last segment of currentWord split by COMP_WORDBREAKS
 	if len(values) > 1 && commonDisplayPrefix(values...) != "" {
 		// When all display values have the same prefix bash will insert is as partial completion (which skips prefixes/formatting).
 		if valuePrefix := commonValuePrefix(values...); lastSegment != valuePrefix {
@@ -95,15 +97,23 @@ func ActionRawValues(currentWord string, meta common.Meta, values common.RawValu
 		meta.Nospace.Add('*')
 	}
 
+	nospace := false
 	vals := make([]string, len(values))
 	for index, val := range values {
-		if len(values) == 1 {
-			vals[index] = quoter.Replace(sanitizer.Replace(val.Value))
-			if !meta.Nospace.Matches(val.Value) {
-				vals[index] = val.Value + " "
-			}
+		if len(values) == 1 || compType != COMP_TYPE_LIST_SUCCESSIVE_TABS {
+			nospace = nospace || meta.Nospace.Matches(val.Value)
 
+			vals[index] = sanitizer.Replace(val.Value)
+			switch {
+			case strings.HasPrefix(vals[index], "~"): // assume homedir expansion
+				vals[index] = escapingReplacer.Replace(vals[index])
+			case requiresQuoting(vals[index]):
+				vals[index] = fmt.Sprintf(`"%v"`, escapingQuotedReplacer.Replace(vals[index]))
+			}
 		} else {
+			nospace = true
+			val.Display = displayReplacer.Replace(val.Display)
+			val.Description = displayReplacer.Replace(val.Description)
 			if val.Description != "" {
 				vals[index] = fmt.Sprintf("%v (%v)", val.Display, sanitizer.Replace(val.TrimmedDescription()))
 			} else {
@@ -111,5 +121,14 @@ func ActionRawValues(currentWord string, meta common.Meta, values common.RawValu
 			}
 		}
 	}
-	return strings.Join(vals, "\n")
+	return fmt.Sprintf("%v\001%v", nospace, strings.Join(vals, "\n"))
+}
+
+func requiresQuoting(s string) bool {
+	chars := " \t\r\n`" + `[]{}()<>;|$&:*#`
+	chars += `'"`
+	chars += os.Getenv("COMP_WORDBREAKS")
+	chars += `\`
+	return strings.ContainsAny(s, chars)
+
 }

@@ -1,7 +1,7 @@
 package carapace
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -51,10 +51,10 @@ func TestRegisterFlagCompletion(t *testing.T) {
 	os.Stdout = w
 
 	os.Args = []string{"", "__complete", "--flag", ""}
-	cmd.Execute()
+	_ = cmd.Execute()
 
 	w.Close()
-	out, _ := ioutil.ReadAll(r)
+	out, _ := io.ReadAll(r)
 	os.Stdout = rescueStdout
 
 	if lines := strings.Split(string(out), "\n"); lines[0] != "1\tone" {

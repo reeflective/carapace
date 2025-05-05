@@ -7,46 +7,49 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rsteube/carapace/internal/common"
-	"github.com/rsteube/carapace/internal/shell/zsh"
-	"github.com/rsteube/carapace/third_party/github.com/drone/envsubst"
-	"github.com/rsteube/carapace/third_party/golang.org/x/sys/execabs"
+	"github.com/carapace-sh/carapace/internal/env"
+	"github.com/carapace-sh/carapace/internal/shell/zsh"
+	"github.com/carapace-sh/carapace/pkg/execlog"
+	"github.com/carapace-sh/carapace/pkg/util"
+	"github.com/carapace-sh/carapace/third_party/github.com/drone/envsubst"
+	"github.com/spf13/cobra"
 )
 
 // Context provides information during completion.
 type Context struct {
-	// CallbackValue contains the (partial) value (or part of it during an ActionMultiParts) currently being completed
-	CallbackValue string
-	// Args contains the positional arguments of current (sub)command (exclusive the one currently being completed)
+	// Value contains the value currently being completed (or part of it during an ActionMultiParts).
+	Value string
+	// Args contains the positional arguments of current (sub)command (exclusive the one currently being completed).
 	Args []string
-	// Parts contains the splitted CallbackValue during an ActionMultiParts (exclusive the part currently being completed)
+	// Parts contains the splitted Value during an ActionMultiParts (exclusive the part currently being completed).
 	Parts []string
-	// Env contains environment variables for current context
+	// Env contains environment variables for current context.
 	Env []string
-	// Dir contains the working directory for current context
+	// Dir contains the working directory for current context.
 	Dir string
 
 	mockedReplies map[string]string
+	cmd           *cobra.Command // needed for ActionCobra
 }
 
-func NewContext(args []string) Context {
+// NewContext creates a new context for given arguments.
+func NewContext(args ...string) Context {
+	if len(args) == 0 {
+		args = append(args, "")
+	}
+
 	context := Context{
-		CallbackValue: args[len(args)-1],
-		Args:          args[:len(args)-1],
-		Env:           os.Environ(),
+		Value: args[len(args)-1],
+		Args:  args[:len(args)-1],
+		Env:   os.Environ(),
 	}
 
 	if wd, err := os.Getwd(); err == nil {
 		context.Dir = wd
 	}
 
-	isGoRun := func() bool { return strings.HasPrefix(os.Args[0], os.TempDir()+"/go-build") }
-	if value, exists := os.LookupEnv("CARAPACE_SANDBOX"); exists && isGoRun() {
-		var m common.Mock
-		if err := json.Unmarshal([]byte(value), &m); err != nil {
-			panic(err.Error()) // TODO
-		}
-		context.Dir = m.Dir
+	if m, err := env.Sandbox(); err == nil {
+		context.Dir = m.WorkDir()
 		context.mockedReplies = m.Replies
 	}
 	return context
@@ -77,6 +80,7 @@ func (c *Context) Setenv(key, value string) {
 	c.Env = append(c.Env, fmt.Sprintf("%v=%v", key, value))
 }
 
+// Envsubst replaces ${var} in the string based on environment variables in current context.
 func (c Context) Envsubst(s string) (string, error) {
 	return envsubst.Eval(s, c.Getenv)
 }
@@ -84,16 +88,16 @@ func (c Context) Envsubst(s string) (string, error) {
 // Command returns the Cmd struct to execute the named program with the given arguments.
 // Env and Dir are set using the Context.
 // See exec.Command for most details.
-func (c Context) Command(name string, arg ...string) *execabs.Cmd {
+func (c Context) Command(name string, arg ...string) *execlog.Cmd {
 	if c.mockedReplies != nil {
 		if m, err := json.Marshal(append([]string{name}, arg...)); err == nil {
 			if reply, exists := c.mockedReplies[string(m)]; exists {
-				return execabs.Command("echo", reply)
+				return execlog.Command("echo", reply) // TODO use mock
 			}
 		}
 	}
 
-	cmd := execabs.Command(name, arg...)
+	cmd := execlog.Command(name, arg...)
 	cmd.Env = c.Env
 	cmd.Dir = c.Dir
 	return cmd
@@ -105,41 +109,46 @@ func expandHome(s string) (string, error) {
 			return zsh.NamedDirectories.Replace(s), nil
 		}
 
-		home, err := os.UserHomeDir() // TODO duplicated code
+		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", err
 		}
-		s = strings.Replace(s, "~/", home+"/", 1)
+		home = filepath.ToSlash(home)
+		switch s {
+		case "~":
+			s = home
+		default:
+			s = strings.Replace(s, "~/", home+"/", 1)
+		}
 	}
 	return s, nil
 }
 
-func (c Context) Abs(s string) (string, error) {
-	var path string
-	if strings.HasPrefix(s, "/") || strings.HasPrefix(s, "~") {
-		path = s // path is absolute
-	} else {
-		expanded, err := expandHome(c.Dir)
-		if err != nil {
-			return "", err
+// Abs returns an absolute representation of path.
+func (c Context) Abs(path string) (string, error) {
+	path = filepath.ToSlash(path)
+	if !strings.HasPrefix(path, "/") && !strings.HasPrefix(path, "~") && !util.HasVolumePrefix(path) { // path is relative
+		switch c.Dir {
+		case "":
+			path = "./" + path
+		default:
+			path = c.Dir + "/" + path
 		}
-		abs, err := filepath.Abs(expanded)
-		if err != nil {
-			return "", err
-		}
-		path = abs + "/" + s
 	}
 
-	expanded, err := expandHome(path)
+	path, err := expandHome(path)
 	if err != nil {
 		return "", err
 	}
-	path = expanded
 
+	if len(path) == 2 && util.HasVolumePrefix(path) {
+		path += "/" // prevent `C:` -> `C:./current/working/directory`
+	}
 	result, err := filepath.Abs(path)
 	if err != nil {
 		return "", err
 	}
+	result = filepath.ToSlash(result)
 
 	if strings.HasSuffix(path, "/") && !strings.HasSuffix(result, "/") {
 		result += "/"

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rsteube/carapace/internal/common"
-	"github.com/rsteube/carapace/pkg/style"
-	"github.com/rsteube/carapace/third_party/github.com/elves/elvish/pkg/ui"
+	"github.com/carapace-sh/carapace/internal/common"
+	"github.com/carapace-sh/carapace/pkg/style"
+	"github.com/carapace-sh/carapace/third_party/github.com/elves/elvish/pkg/ui"
 )
 
 type zstyles struct {
@@ -31,17 +31,6 @@ func (z zstyles) valueSGR(val common.RawValue) string {
 	return style.SGR(style.Default)
 }
 
-func (z zstyles) hasAliases() bool {
-	descriptions := make(map[string]bool)
-	for _, val := range z.rawValues {
-		if _, exists := descriptions[val.Description]; exists && val.Description != "" {
-			return true
-		}
-		descriptions[val.Description] = true
-	}
-	return false
-}
-
 func (z zstyles) Format() string {
 	replacer := strings.NewReplacer(
 		"#", `\#`,
@@ -55,12 +44,12 @@ func (z zstyles) Format() string {
 	)
 
 	formatted := make([]string, 0)
-	if len(z.rawValues) < 1000 { // disable styling for large amount of values (bad performance)
+	if len(z.rawValues) < 500 { // disable styling for large amount of values (bad performance)
 		for _, val := range z.rawValues {
 			// match value with description
-			formatted = append(formatted, fmt.Sprintf("=(#b)(%v)( * -- *)=0=%v=%v", replacer.Replace(val.Display), z.valueSGR(val), z.descriptionSGR()))
+			formatted = append(formatted, fmt.Sprintf("=(#b)(%v)([ ]## -- *)=0=%v=%v", replacer.Replace(val.Display), z.valueSGR(val), z.descriptionSGR()))
 			// only match value (also matches aliased completions that are placed on the same line if the space allows it)
-			formatted = append(formatted, fmt.Sprintf("=(#b)(%v)()=0=%v=%v", replacer.Replace(val.Display), z.valueSGR(val), z.descriptionSGR()))
+			formatted = append(formatted, fmt.Sprintf("=(#b)(%v)=0=%v", replacer.Replace(val.Display), z.valueSGR(val)))
 		}
 	}
 	formatted = append(formatted, fmt.Sprintf("=(#b)(%v)=0=%v", "-- *", z.descriptionSGR())) // match description for aliased completions

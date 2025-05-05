@@ -1,14 +1,18 @@
 {
   "name": "carapace",
-  "image": "ghcr.io/rsteube/carapace:v0.20.3",
+  "image": "ghcr.io/carapace-sh/dev",
   "settings": {
-    "terminal.integrated.shell.linux": "/bin/elvish"
+    "terminal.integrated.shell.linux": "/usr/local/bin/elvish"
   },
   "extensions": [
     "golang.Go"
   ],
   "containerEnv": {
-    "TARGET": "/home/circleci/go/bin/example"
+    "TARGET": "/go/bin/example"
   },
-  "onCreateCommand": [ "sh", "-c", "cd example && go install ."]
+  "onCreateCommand": [
+    "sh",
+    "-c",
+    "cd example && go install ."
+  ]
 }

@@ -1,10 +1,11 @@
 package cmd
 
 import (
+	"os/exec"
 	"strings"
 
-	"github.com/rsteube/carapace"
-	"github.com/rsteube/carapace/pkg/style"
+	"github.com/carapace-sh/carapace"
+	"github.com/carapace-sh/carapace/pkg/style"
 	"github.com/spf13/cobra"
 )
 
@@ -20,8 +21,12 @@ func init() {
 	rootCmd.AddCommand(actionCmd)
 
 	actionCmd.Flags().String("callback", "", "ActionCallback()")
+	actionCmd.Flags().String("cobra", "", "ActionCobra()")
+	actionCmd.Flags().String("commands", "", "ActionCommands()")
 	actionCmd.Flags().String("directories", "", "ActionDirectories()")
-	actionCmd.Flags().String("exec-command", "", "ActionExecCommand()")
+	actionCmd.Flags().String("execcommand", "", "ActionExecCommand()")
+	actionCmd.Flags().String("execcommandE", "", "ActionExecCommand()")
+	actionCmd.Flags().String("executables", "", "ActionExecutables()")
 	actionCmd.Flags().String("files", "", "ActionFiles()")
 	actionCmd.Flags().String("files-filtered", "", "ActionFiles(\".md\", \"go.mod\", \"go.sum\")")
 	actionCmd.Flags().String("import", "", "ActionImport()")
@@ -29,6 +34,10 @@ func init() {
 	actionCmd.Flags().String("message-multiple", "", "ActionMessage()")
 	actionCmd.Flags().String("multiparts", "", "ActionMultiParts()")
 	actionCmd.Flags().String("multiparts-nested", "", "ActionMultiParts(...ActionMultiParts...)")
+	actionCmd.Flags().String("multipartsn", "", "ActionMultiPartsN()")
+	actionCmd.Flags().String("multipartsn-empty", "", "ActionMultiPartsN()")
+	actionCmd.Flags().String("styles", "", "ActionStyles()")
+	actionCmd.Flags().String("styleconfig", "", "ActionStyleConfig()")
 	actionCmd.Flags().String("styled-values", "", "ActionStyledValues()")
 	actionCmd.Flags().String("styled-values-described", "", "ActionStyledValuesDescribed()")
 	actionCmd.Flags().String("values", "", "ActionValues()")
@@ -41,29 +50,43 @@ func init() {
 			}
 			return carapace.ActionMessage("values flag is not set")
 		}),
+		"cobra": carapace.ActionCobra(func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return []string{"one", "two"}, cobra.ShellCompDirectiveNoSpace
+		}),
+		"commands":    carapace.ActionCommands(rootCmd).Split(),
 		"directories": carapace.ActionDirectories(),
-		"exec-command": carapace.ActionExecCommand("git", "remote")(func(output []byte) carapace.Action {
+		"execcommand": carapace.ActionExecCommand("git", "remote")(func(output []byte) carapace.Action {
 			lines := strings.Split(string(output), "\n")
 			return carapace.ActionValues(lines[:len(lines)-1]...)
 		}),
+		"execcommandE": carapace.ActionExecCommandE("false")(func(output []byte, err error) carapace.Action {
+			if err != nil {
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					return carapace.ActionMessage("failed with %v", exitErr.ExitCode())
+				}
+				return carapace.ActionMessage(err.Error())
+			}
+			return carapace.ActionValues()
+		}),
+		"executables":    carapace.ActionExecutables(),
 		"files":          carapace.ActionFiles(),
 		"files-filtered": carapace.ActionFiles(".md", "go.mod", "go.sum"),
 		"import": carapace.ActionImport([]byte(`
 {
-  "Version": "unknown",
-  "Nospace": "",
-  "RawValues": [
+  "version": "unknown",
+  "nospace": "",
+  "values": [
     {
-      "Value": "first",
-      "Display": "first"
+      "value": "first",
+      "display": "first"
     },
     {
-      "Value": "second",
-      "Display": "second"
+      "value": "second",
+      "display": "second"
     },
     {
-      "Value": "third",
-      "Display": "third"
+      "value": "third",
+      "display": "third"
     }
   ]
 }
@@ -93,7 +116,7 @@ func init() {
 					for index, entry := range cEntries.Parts {
 						keys[index] = strings.Split(entry, "=")[0]
 					}
-					return carapace.ActionValues("FILE", "DIRECTORY", "VALUE").Invoke(c).Filter(keys).Suffix("=").ToA()
+					return carapace.ActionValues("FILE", "DIRECTORY", "VALUE").Invoke(c).Filter(keys...).Suffix("=").ToA()
 				case 1:
 					switch c.Parts[0] {
 					case "FILE":
@@ -111,6 +134,37 @@ func init() {
 				}
 			})
 		}),
+		"multipartsn": carapace.ActionMultiPartsN("=", 2, func(c carapace.Context) carapace.Action {
+			switch len(c.Parts) {
+			case 0:
+				return carapace.ActionValues("one", "two").Suffix("=")
+			case 1:
+				return carapace.ActionMultiParts("=", func(c carapace.Context) carapace.Action {
+					switch len(c.Parts) {
+					case 0:
+						return carapace.ActionValues("three", "four").Suffix("=")
+					case 1:
+						return carapace.ActionValues("five", "six")
+					default:
+						return carapace.ActionValues()
+					}
+				})
+			default:
+				return carapace.ActionMessage("should never happen")
+			}
+		}),
+		"multipartsn-empty": carapace.ActionMultiPartsN("", 2, func(c carapace.Context) carapace.Action {
+			switch len(c.Parts) {
+			case 0:
+				return carapace.ActionValues("a", "b")
+			case 1:
+				return carapace.ActionValues("c", "d", "e").UniqueList("")
+			default:
+				return carapace.ActionMessage("should never happen")
+			}
+		}),
+		"styles":      carapace.ActionStyles(),
+		"styleconfig": carapace.ActionStyleConfig(),
 		"styled-values": carapace.ActionStyledValues(
 			"first", style.Default,
 			"second", style.Blue,
@@ -130,12 +184,7 @@ func init() {
 		),
 	})
 
-	carapace.Gen(actionCmd).PositionalCompletion(
-		carapace.ActionValues("positional1", "p1", "positional1 with space"),
-		carapace.ActionValues("positional2", "p2", "positional2 with space"),
-	)
-
-	carapace.Gen(actionCmd).DashAnyCompletion(
+	carapace.Gen(actionCmd).PositionalAnyCompletion(
 		carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 			cmd := &cobra.Command{
 				Use: "embedded",
@@ -145,14 +194,27 @@ func init() {
 				Run: func(cmd *cobra.Command, args []string) {},
 			}
 
-			cmd.Flags().Bool("embedded-flag", false, "embedded flag")
+			cmd.Flags().Bool("embedded-bool", false, "embedded bool flag")
+			cmd.Flags().String("embedded-string", "", "embedded string flag")
+			cmd.Flags().String("embedded-optarg", "", "embedded optarg flag")
+
+			cmd.Flag("embedded-optarg").NoOptDefVal = " "
+
+			carapace.Gen(cmd).FlagCompletion(carapace.ActionMap{
+				"embedded-string": carapace.ActionValues("es1", "es2", "es3"),
+				"embedded-optarg": carapace.ActionValues("eo1", "eo2", "eo3"),
+			})
 
 			carapace.Gen(cmd).PositionalCompletion(
 				carapace.ActionValues("embeddedPositional1", "embeddedP1"),
-				carapace.ActionValues("embeddedPositional2", "embeddedP2"),
+				carapace.ActionValues("embeddedPositional2 with space", "embeddedP2 with space"),
 			)
 
 			return carapace.ActionExecute(cmd)
 		}),
+	)
+
+	carapace.Gen(actionCmd).DashAnyCompletion(
+		carapace.ActionPositional(actionCmd),
 	)
 }

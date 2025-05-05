@@ -14,6 +14,6 @@ function _example_callback
   commandline -cp | sed "s/\$/"(_example_quote_suffix)"/" | sed "s/ \$/ ''/" | xargs example _carapace fish
 end
 
-complete -c example -f
+complete -e 'example'
 complete -c 'example' -f -a '(_example_callback)' -r
 

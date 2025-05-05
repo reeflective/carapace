@@ -4,12 +4,19 @@ language = "en"
 multilingual = false
 src = "src"
 title = "carapace"
+description = "A multi-shell completion library."
 
 [output.html]
-default-theme = "Mocha"
-additional-css = ["asciinema/asciinema-player.css", "./theme/catppuccin.css", "./theme/catppuccin-highlight.css"]
+default-theme = "Latte"
+preferred-dark-theme = "Mocha"
+additional-css = ["asciinema/asciinema-player.css", "./theme/catppuccin.css"]
 additional-js = ["asciinema/asciinema-player.min.js", "asciinema/load.js"]
-git-repository-url = "https://github.com/rsteube/carapace"
-edit-url-template = "https://github.com/rsteube/carapace/edit/master/docs/{path}"
+git-repository-url = "https://github.com/carapace-sh/carapace"
+edit-url-template = "https://github.com/carapace-sh/carapace/edit/master/docs/{path}"
 
-#[output.linkcheck]
+[output.html.fold]
+enable = true
+
+[output.linkcheck]
+follow-web-links = true
+exclude = [ 'gnu\.org', '\./.+/out/.+\.gif', 'go\.dev', 'microsoft\.com']

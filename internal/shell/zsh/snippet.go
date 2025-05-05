@@ -4,7 +4,7 @@ package zsh
 import (
 	"fmt"
 
-	"github.com/rsteube/carapace/internal/uid"
+	"github.com/carapace-sh/carapace/pkg/uid"
 	"github.com/spf13/cobra"
 )
 
@@ -12,15 +12,16 @@ import (
 func Snippet(cmd *cobra.Command) string {
 	return fmt.Sprintf(`#compdef %v
 function _%v_completion {
+  local words=${words[@]:0:$CURRENT}
   local IFS=$'\n'
-  
+
   # shellcheck disable=SC2086,SC2154,SC2155
   if echo ${words}"''" | xargs echo 2>/dev/null > /dev/null; then
-    local lines="$(echo ${words}"''" | CARAPACE_ZSH_HASH_DIRS="$(hash -d)" xargs %v _carapace zsh )"
+    local lines="$(echo ${words}"''" | CARAPACE_COMPLINE="${words}" CARAPACE_ZSH_HASH_DIRS="$(hash -d)" xargs %v _carapace zsh )"
   elif echo ${words} | sed "s/\$/'/" | xargs echo 2>/dev/null > /dev/null; then
-    local lines="$(echo ${words} | sed "s/\$/'/" | CARAPACE_ZSH_HASH_DIRS="$(hash -d)" xargs %v _carapace zsh)"
+    local lines="$(echo ${words} | sed "s/\$/'/" | CARAPACE_COMPLINE="${words}" CARAPACE_ZSH_HASH_DIRS="$(hash -d)" xargs %v _carapace zsh)"
   else
-    local lines="$(echo ${words} | sed 's/$/"/' | CARAPACE_ZSH_HASH_DIRS="$(hash -d)" xargs %v _carapace zsh)"
+    local lines="$(echo ${words} | sed 's/$/"/' | CARAPACE_COMPLINE="${words}" CARAPACE_ZSH_HASH_DIRS="$(hash -d)" xargs %v _carapace zsh)"
   fi
 
   local zstyle message data

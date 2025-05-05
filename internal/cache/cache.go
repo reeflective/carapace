@@ -11,47 +11,66 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rsteube/carapace/internal/common"
-	"github.com/rsteube/carapace/internal/uid"
-	"github.com/rsteube/carapace/pkg/cache"
+	"github.com/carapace-sh/carapace/internal/env"
+	"github.com/carapace-sh/carapace/internal/export"
+	"github.com/carapace-sh/carapace/pkg/cache/key"
+	"github.com/carapace-sh/carapace/pkg/uid"
+	"github.com/carapace-sh/carapace/pkg/xdg"
 )
 
-// Write persistests given values to file as json.
-func Write(file string, rawValues []common.RawValue) (err error) {
+func WriteE(file string, e export.Export) (err error) {
 	var m []byte
-	if m, err = json.Marshal(rawValues); err == nil {
-		err = os.WriteFile(file, m, 0o600)
+	if m, err = json.Marshal(e); err == nil {
+		err = Write(file, m)
 	}
 	return
 }
 
-// Load loads values from file unless modification date exceeds timeout.
-func Load(file string, timeout time.Duration) (rawValues []common.RawValue, err error) {
-	var content []byte
-	var stat os.FileInfo
-	if stat, err = os.Stat(file); os.IsNotExist(err) || (timeout > 0 && stat.ModTime().Add(timeout).Before(time.Now())) {
-		err = errors.New("not exists or timeout exceeded")
-	} else {
-		if content, err = os.ReadFile(file); err == nil {
-			err = json.Unmarshal(content, &rawValues)
-		}
+func Write(file string, content []byte) (err error) {
+	return os.WriteFile(file, content, 0600)
+}
+
+func LoadE(file string, timeout time.Duration) (*export.Export, error) { // TODO reference
+	content, err := Load(file, timeout)
+	if err != nil {
+		return nil, err
 	}
-	return
+
+	var e export.Export
+	if err := json.Unmarshal(content, &e); err != nil {
+		return nil, err
+	}
+	return &e, nil
+}
+
+func Load(file string, timeout time.Duration) (b []byte, err error) {
+	var stat os.FileInfo
+	if stat, err = os.Stat(file); os.IsNotExist(err) || (timeout >= 0 && stat.ModTime().Add(timeout).Before(time.Now())) {
+		return nil, errors.New("not exists or timeout exceeded")
+	}
+	return os.ReadFile(file)
 }
 
 // CacheDir creates a cache folder for current user and returns the path.
 func CacheDir(name string) (dir string, err error) {
 	var userCacheDir string
-	if userCacheDir, err = os.UserCacheDir(); err == nil {
-		dir = fmt.Sprintf("%v/carapace/%v/%v", userCacheDir, uid.Executable(), name)
-		err = os.MkdirAll(dir, 0o700)
+	userCacheDir, err = xdg.UserCacheDir()
+	if err != nil {
+		return
 	}
+
+	if m, sandboxErr := env.Sandbox(); sandboxErr == nil {
+		userCacheDir = m.CacheDir()
+	}
+
+	dir = fmt.Sprintf("%v/carapace/%v/%v", userCacheDir, uid.Executable(), name)
+	err = os.MkdirAll(dir, 0700)
 	return
 }
 
 // File returns the cache filename for given values
-// TODO cleanup.
-func File(callerFile string, callerLine int, keys ...cache.Key) (file string, err error) {
+// TODO cleanup
+func File(callerFile string, callerLine int, keys ...key.Key) (file string, err error) {
 	uid := uidKeys(callerFile, strconv.Itoa(callerLine))
 	ids := make([]string, 0)
 	for _, key := range keys {

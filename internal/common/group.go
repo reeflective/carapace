@@ -1,9 +1,9 @@
 package common
 
 import (
-	"fmt"
+	"strings"
 
-	"github.com/rsteube/carapace/pkg/style"
+	"github.com/carapace-sh/carapace/pkg/style"
 	"github.com/spf13/cobra"
 )
 
@@ -12,13 +12,17 @@ type Group struct {
 }
 
 func (g Group) Tag() string {
-	tag := "commands"
-	if id := g.Cmd.GroupID; id != "" {
-		tag = fmt.Sprintf("%v %v", id, tag)
-	} else if len(g.Cmd.Parent().Groups()) != 0 {
-		tag = "other commands"
+	id := strings.ToLower(g.Cmd.GroupID)
+	switch {
+	case strings.HasSuffix(id, " commands"):
+		return id
+	case id != "":
+		return id + " commands"
+	case len(g.Cmd.Parent().Groups()) != 0:
+		return "other commands"
+	default:
+		return "commands"
 	}
-	return tag
 }
 
 func (g Group) Style() string {

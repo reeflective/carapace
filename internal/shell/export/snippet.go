@@ -4,7 +4,7 @@ package export
 import (
 	"encoding/json"
 
-	"github.com/rsteube/carapace/internal/pflagfork"
+	"github.com/carapace-sh/carapace/internal/pflagfork"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -29,7 +29,7 @@ type flag struct {
 
 func convertFlag(f *pflag.Flag) flag {
 	longhand := ""
-	if (pflagfork.Flag{Flag: f}).Style() != pflagfork.ShorthandOnly {
+	if (pflagfork.Flag{Flag: f}).Mode() != pflagfork.ShorthandOnly {
 		longhand = f.Name
 	}
 

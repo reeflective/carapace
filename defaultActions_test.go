@@ -4,28 +4,29 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/carapace-sh/carapace/pkg/uid"
 	"github.com/spf13/cobra"
 )
 
 func TestActionImport(t *testing.T) {
 	s := `
 {
-  "Version": "unknown",
-  "Nospace": "",
-  "RawValues": [
+  "version": "unknown",
+  "nospace": "",
+  "values": [
     {
-      "Value": "positional1",
-      "Display": "positional1",
-      "Description": "",
-      "Style": "",
-	  "Tag": "first"
+      "value": "positional1",
+      "display": "positional1",
+      "description": "",
+      "style": "",
+	  "tag": "first"
     },
     {
-      "Value": "p1",
-      "Display": "p1",
-      "Description": "",
-      "Style": "",
-	  "Tag": "first"
+      "value": "p1",
+      "display": "p1",
+      "description": "",
+      "style": "",
+	  "tag": "first"
     }
   ]
 }`
@@ -33,13 +34,27 @@ func TestActionImport(t *testing.T) {
 }
 
 func TestActionFlags(t *testing.T) {
-	cmd := &cobra.Command{}
+	cmd := &cobra.Command{Use: "actionFlags"}
 	cmd.Flags().BoolP("alpha", "a", false, "")
 	cmd.Flags().BoolP("beta", "b", false, "")
 
 	cmd.Flag("alpha").Changed = true
-	a := actionFlags(cmd).Invoke(Context{CallbackValue: "-a"})
-	assertEqual(t, ActionValuesDescribed("b", "").Tag("flags").NoSpace().Invoke(Context{}).Prefix("-a"), a)
+	a := actionFlags(cmd).Invoke(Context{Value: "-a"})
+	assertEqual(
+		t,
+		ActionValuesDescribed(
+			"b", "",
+			"h", "help for actionFlags",
+		).Tag("shorthand flags").
+			NoSpace('b', 'h').
+			Invoke(Context{}).
+			Prefix("-a").
+			UidF(uid.Map(
+				"-ab", "cmd://actionFlags?flag=beta",
+				"-ah", "cmd://actionFlags?flag=help",
+			)),
+		a,
+	)
 }
 
 func TestActionExecCommandEnv(t *testing.T) {
